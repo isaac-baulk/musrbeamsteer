@@ -1,0 +1,409 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>musrbeamsteer package &mdash; musrbeamsteer 0.1 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=2709fde1"></script>
+      <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="musrbeamsteer.TT_PCA package" href="musrbeamsteer.TT_PCA.html" />
+    <link rel="prev" title="musrbeamsteer" href="modules.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            musrbeamsteer
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="modules.html">musrbeamsteer</a><ul class="current">
+<li class="toctree-l2 current"><a class="current reference internal" href="#">musrbeamsteer package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#subpackages">Subpackages</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="musrbeamsteer.TT_PCA.html">musrbeamsteer.TT_PCA package</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#submodules">Submodules</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#module-musrbeamsteer.gp_kg_minimizer">musrbeamsteer.gp_kg_minimizer module</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#musrbeamsteer.gp_kg_minimizer.Observation"><code class="docutils literal notranslate"><span class="pre">Observation</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#musrbeamsteer.gp_kg_minimizer.SearchResult"><code class="docutils literal notranslate"><span class="pre">SearchResult</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#musrbeamsteer.gp_kg_minimizer.default_initial_coordinates"><code class="docutils literal notranslate"><span class="pre">default_initial_coordinates()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#musrbeamsteer.gp_kg_minimizer.estimate_noise_variance"><code class="docutils literal notranslate"><span class="pre">estimate_noise_variance()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#musrbeamsteer.gp_kg_minimizer.gp_kg_next_coordinate"><code class="docutils literal notranslate"><span class="pre">gp_kg_next_coordinate()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#musrbeamsteer.gp_kg_minimizer.search_minimum"><code class="docutils literal notranslate"><span class="pre">search_minimum()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#musrbeamsteer-integrated-gp-module">musrbeamsteer.integrated_gp module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#musrbeamsteer-optimised-integrated-gp-module">musrbeamsteer.optimised_integrated_gp module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#module-musrbeamsteer">Module contents</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">musrbeamsteer</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="modules.html">musrbeamsteer</a></li>
+      <li class="breadcrumb-item active">musrbeamsteer package</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/api/musrbeamsteer.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="musrbeamsteer-package">
+<h1>musrbeamsteer package<a class="headerlink" href="#musrbeamsteer-package" title="Link to this heading"></a></h1>
+<section id="subpackages">
+<h2>Subpackages<a class="headerlink" href="#subpackages" title="Link to this heading"></a></h2>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="musrbeamsteer.TT_PCA.html">musrbeamsteer.TT_PCA package</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="musrbeamsteer.TT_PCA.html#subpackages">Subpackages</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="musrbeamsteer.TT_PCA.utils.html">musrbeamsteer.TT_PCA.utils package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="musrbeamsteer.TT_PCA.utils.html#submodules">Submodules</a></li>
+<li class="toctree-l4"><a class="reference internal" href="musrbeamsteer.TT_PCA.utils.html#module-musrbeamsteer.TT_PCA.utils.utils">musrbeamsteer.TT_PCA.utils.utils module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="musrbeamsteer.TT_PCA.utils.html#module-musrbeamsteer.TT_PCA.utils">Module contents</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="musrbeamsteer.TT_PCA.html#submodules">Submodules</a></li>
+<li class="toctree-l2"><a class="reference internal" href="musrbeamsteer.TT_PCA.html#module-musrbeamsteer.TT_PCA.data_handler">musrbeamsteer.TT_PCA.data_handler module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="musrbeamsteer.TT_PCA.html#musrbeamsteer.TT_PCA.data_handler.DataHandler"><code class="docutils literal notranslate"><span class="pre">DataHandler</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="musrbeamsteer.TT_PCA.html#musrbeamsteer.TT_PCA.data_handler.DataHandler.bin_data"><code class="docutils literal notranslate"><span class="pre">DataHandler.bin_data()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="musrbeamsteer.TT_PCA.html#musrbeamsteer.TT_PCA.data_handler.DataHandler.filter_data"><code class="docutils literal notranslate"><span class="pre">DataHandler.filter_data()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="musrbeamsteer.TT_PCA.html#musrbeamsteer.TT_PCA.data_handler.DataHandler.load_batch"><code class="docutils literal notranslate"><span class="pre">DataHandler.load_batch()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="musrbeamsteer.TT_PCA.html#musrbeamsteer.TT_PCA.data_handler.DataHandler.load_batch_from_array"><code class="docutils literal notranslate"><span class="pre">DataHandler.load_batch_from_array()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="musrbeamsteer.TT_PCA.html#musrbeamsteer.TT_PCA.data_handler.DataHandler.prepare_XYE_PCA"><code class="docutils literal notranslate"><span class="pre">DataHandler.prepare_XYE_PCA()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="musrbeamsteer.TT_PCA.html#musrbeamsteer.TT_PCA.data_handler.DataHandler.slice_batch"><code class="docutils literal notranslate"><span class="pre">DataHandler.slice_batch()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="musrbeamsteer.TT_PCA.html#module-musrbeamsteer.TT_PCA.pca_machine">musrbeamsteer.TT_PCA.pca_machine module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="musrbeamsteer.TT_PCA.html#musrbeamsteer.TT_PCA.pca_machine.PCAMachine"><code class="docutils literal notranslate"><span class="pre">PCAMachine</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="musrbeamsteer.TT_PCA.html#musrbeamsteer.TT_PCA.pca_machine.PCAMachine.perform_pca"><code class="docutils literal notranslate"><span class="pre">PCAMachine.perform_pca()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="musrbeamsteer.TT_PCA.html#musrbeamsteer.TT_PCA.pca_machine.PCAMachine.print_pca_representation"><code class="docutils literal notranslate"><span class="pre">PCAMachine.print_pca_representation()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="musrbeamsteer.TT_PCA.html#musrbeamsteer.TT_PCA.pca_machine.PCAMachine.show_pca_results_1"><code class="docutils literal notranslate"><span class="pre">PCAMachine.show_pca_results_1()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="musrbeamsteer.TT_PCA.html#musrbeamsteer.TT_PCA.pca_machine.PCAMachine.show_pca_results_2"><code class="docutils literal notranslate"><span class="pre">PCAMachine.show_pca_results_2()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="musrbeamsteer.TT_PCA.html#musrbeamsteer.TT_PCA.pca_machine.PCAMachine.turn_pc_into_2D"><code class="docutils literal notranslate"><span class="pre">PCAMachine.turn_pc_into_2D()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="musrbeamsteer.TT_PCA.html#module-musrbeamsteer.TT_PCA">Module contents</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</section>
+<section id="submodules">
+<h2>Submodules<a class="headerlink" href="#submodules" title="Link to this heading"></a></h2>
+</section>
+<section id="module-musrbeamsteer.gp_kg_minimizer">
+<span id="musrbeamsteer-gp-kg-minimizer-module"></span><h2>musrbeamsteer.gp_kg_minimizer module<a class="headerlink" href="#module-musrbeamsteer.gp_kg_minimizer" title="Link to this heading"></a></h2>
+<p>Created on Thu Oct  8 08:59:59 2026</p>
+<p>&#64;author: hwh96151</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="musrbeamsteer.gp_kg_minimizer.Observation">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">musrbeamsteer.gp_kg_minimizer.</span></span><span class="sig-name descname"><span class="pre">Observation</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">coordinate</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ndarray</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">measurement</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Any</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">metric</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">nan</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#musrbeamsteer.gp_kg_minimizer.Observation" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>One measured coordinate, its raw measurement, and derived metric.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="musrbeamsteer.gp_kg_minimizer.Observation.coordinate">
+<span class="sig-name descname"><span class="pre">coordinate</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">ndarray</span></span><a class="headerlink" href="#musrbeamsteer.gp_kg_minimizer.Observation.coordinate" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="musrbeamsteer.gp_kg_minimizer.Observation.measurement">
+<span class="sig-name descname"><span class="pre">measurement</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Any</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></span><a class="headerlink" href="#musrbeamsteer.gp_kg_minimizer.Observation.measurement" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="musrbeamsteer.gp_kg_minimizer.Observation.metric">
+<span class="sig-name descname"><span class="pre">metric</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">nan</span></span><a class="headerlink" href="#musrbeamsteer.gp_kg_minimizer.Observation.metric" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="musrbeamsteer.gp_kg_minimizer.SearchResult">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">musrbeamsteer.gp_kg_minimizer.</span></span><span class="sig-name descname"><span class="pre">SearchResult</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">coordinate</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ndarray</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">value</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">estimated_noise_std</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_measurements</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">converged</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">observations</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="#musrbeamsteer.gp_kg_minimizer.Observation" title="musrbeamsteer.gp_kg_minimizer.Observation"><span class="pre">Observation</span></a><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#musrbeamsteer.gp_kg_minimizer.SearchResult" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Final result and complete observation history of a search.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="musrbeamsteer.gp_kg_minimizer.SearchResult.converged">
+<span class="sig-name descname"><span class="pre">converged</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></span><a class="headerlink" href="#musrbeamsteer.gp_kg_minimizer.SearchResult.converged" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="musrbeamsteer.gp_kg_minimizer.SearchResult.coordinate">
+<span class="sig-name descname"><span class="pre">coordinate</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">ndarray</span></span><a class="headerlink" href="#musrbeamsteer.gp_kg_minimizer.SearchResult.coordinate" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="musrbeamsteer.gp_kg_minimizer.SearchResult.estimated_noise_std">
+<span class="sig-name descname"><span class="pre">estimated_noise_std</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></span><a class="headerlink" href="#musrbeamsteer.gp_kg_minimizer.SearchResult.estimated_noise_std" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="musrbeamsteer.gp_kg_minimizer.SearchResult.n_measurements">
+<span class="sig-name descname"><span class="pre">n_measurements</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></span><a class="headerlink" href="#musrbeamsteer.gp_kg_minimizer.SearchResult.n_measurements" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="musrbeamsteer.gp_kg_minimizer.SearchResult.observations">
+<span class="sig-name descname"><span class="pre">observations</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">list</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="#musrbeamsteer.gp_kg_minimizer.Observation" title="musrbeamsteer.gp_kg_minimizer.Observation"><span class="pre">Observation</span></a><span class="p"><span class="pre">]</span></span></span><a class="headerlink" href="#musrbeamsteer.gp_kg_minimizer.SearchResult.observations" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="musrbeamsteer.gp_kg_minimizer.SearchResult.value">
+<span class="sig-name descname"><span class="pre">value</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></span><a class="headerlink" href="#musrbeamsteer.gp_kg_minimizer.SearchResult.value" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="musrbeamsteer.gp_kg_minimizer.default_initial_coordinates">
+<span class="sig-prename descclassname"><span class="pre">musrbeamsteer.gp_kg_minimizer.</span></span><span class="sig-name descname"><span class="pre">default_initial_coordinates</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">bounds</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Sequence</span><span class="p"><span class="pre">[</span></span><span class="pre">Sequence</span><span class="p"><span class="pre">[</span></span><span class="pre">float</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">ndarray</span><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#musrbeamsteer.gp_kg_minimizer.default_initial_coordinates" title="Link to this definition"></a></dt>
+<dd><p>Return a simple dimension-independent initial design.</p>
+<dl class="simple">
+<dt>It contains:</dt><dd><ul class="simple">
+<li><p>the centre of the parameter space;</p></li>
+<li><p>one point at the lower boundary of each axis;</p></li>
+<li><p>one point at the upper boundary of each axis;</p></li>
+</ul>
+</dd>
+</dl>
+<p>while all other coordinates remain at their centre.</p>
+<p>Number of points = 1 + 2*N.</p>
+<p class="rubric">Examples</p>
+<p>N=1 -&gt; 3 points
+N=2 -&gt; 5 points
+N=4 -&gt; 9 points</p>
+<p>With initial_repeats=2 this uses 6, 10 and 18 measurements respectively.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>bounds</strong> (<em>sequence</em><em> of </em><em>sequence</em><em> of </em><em>float</em>) – One finite <code class="docutils literal notranslate"><span class="pre">(lower,</span> <span class="pre">upper)</span></code> pair per dimension.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The centre point plus one lower and upper axial point per dimension.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>list of numpy.ndarray</p>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>ValueError</strong> – If <code class="docutils literal notranslate"><span class="pre">bounds</span></code> is invalid.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="musrbeamsteer.gp_kg_minimizer.estimate_noise_variance">
+<span class="sig-prename descclassname"><span class="pre">musrbeamsteer.gp_kg_minimizer.</span></span><span class="sig-name descname"><span class="pre">estimate_noise_variance</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">observations</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Sequence</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="#musrbeamsteer.gp_kg_minimizer.Observation" title="musrbeamsteer.gp_kg_minimizer.Observation"><span class="pre">Observation</span></a><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">float</span></span></span><a class="headerlink" href="#musrbeamsteer.gp_kg_minimizer.estimate_noise_variance" title="Link to this definition"></a></dt>
+<dd><p>Estimate the common measurement-noise variance from repeated coordinates.</p>
+<p>If two independent measurements at the same coordinate are</p>
+<blockquote>
+<div><p>y1 = f(x) + e1
+y2 = f(x) + e2</p>
+</div></blockquote>
+<p>with Var(e)=sigma^2, then</p>
+<blockquote>
+<div><p>E[(y1-y2)^2] = 2*sigma^2.</p>
+</div></blockquote>
+<p>All same-coordinate pairs are pooled.</p>
+<p>This assumes all measurements have the same statistical exposure.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>observations</strong> (<em>sequence</em><em> of </em><a class="reference internal" href="#musrbeamsteer.gp_kg_minimizer.Observation" title="musrbeamsteer.gp_kg_minimizer.Observation"><em>Observation</em></a>) – Observations containing repeated coordinates and metrics.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Estimated common observation-noise variance.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>float</p>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>RuntimeError</strong> – If no coordinate has been measured more than once.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="musrbeamsteer.gp_kg_minimizer.gp_kg_next_coordinate">
+<span class="sig-prename descclassname"><span class="pre">musrbeamsteer.gp_kg_minimizer.</span></span><span class="sig-name descname"><span class="pre">gp_kg_next_coordinate</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">observations</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Sequence</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="#musrbeamsteer.gp_kg_minimizer.Observation" title="musrbeamsteer.gp_kg_minimizer.Observation"><span class="pre">Observation</span></a><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bounds</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Sequence</span><span class="p"><span class="pre">[</span></span><span class="pre">Sequence</span><span class="p"><span class="pre">[</span></span><span class="pre">float</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_candidate_points</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">192</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_decision_points</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1024</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">quadrature_order</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">15</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">random_state</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">ndarray</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">float</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">float</span><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#musrbeamsteer.gp_kg_minimizer.gp_kg_next_coordinate" title="Link to this definition"></a></dt>
+<dd><p>Choose the next coordinate using an approximate correlated
+Knowledge Gradient (KG).</p>
+<p>Previously measured coordinates are included among the candidates, so the
+optimizer is allowed to repeat a point when replication is more useful
+than exploration.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>observations</strong> – Existing observations, including at least one repeated coordinate.</p></li>
+<li><p><strong>bounds</strong> – Physical lower and upper bounds for each dimension.</p></li>
+<li><p><strong>n_candidate_points</strong> – Number of Sobol candidate points to evaluate.</p></li>
+<li><p><strong>n_decision_points</strong> – Number of Sobol points approximating the final decision space.</p></li>
+<li><p><strong>quadrature_order</strong> – Hermite quadrature order for the expected improvement estimate.</p></li>
+<li><p><strong>random_state</strong> – Seed controlling Sobol sampling and GP fitting.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p><strong>coordinate</strong> (<em>ndarray</em>) – Proposed next coordinate in physical parameter units.</p></li>
+<li><p><strong>kg</strong> (<em>float</em>) – Expected one-step value of the measurement, in metric units.</p></li>
+<li><p><strong>noise_std</strong> (<em>float</em>) – Current estimated standard deviation of one measurement.</p></li>
+</ul>
+</p>
+</dd>
+<dt class="field-odd">Raises<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>ValueError</strong> – If fewer than two observations are supplied.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="musrbeamsteer.gp_kg_minimizer.search_minimum">
+<span class="sig-prename descclassname"><span class="pre">musrbeamsteer.gp_kg_minimizer.</span></span><span class="sig-name descname"><span class="pre">search_minimum</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">accuracy</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bounds</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Sequence</span><span class="p"><span class="pre">[</span></span><span class="pre">Sequence</span><span class="p"><span class="pre">[</span></span><span class="pre">float</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">get_measurement</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Callable</span><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">[</span></span><span class="pre">ndarray</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">extract_metrics</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Callable</span><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">[</span></span><span class="pre">Sequence</span><span class="p"><span class="pre">[</span></span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Sequence</span><span class="p"><span class="pre">[</span></span><span class="pre">float</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">initial_coordinates</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Iterable</span><span class="p"><span class="pre">[</span></span><span class="pre">Sequence</span><span class="p"><span class="pre">[</span></span><span class="pre">float</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">initial_repeats</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_measurements</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">30</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">minimum_step_sizes</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Sequence</span><span class="p"><span class="pre">[</span></span><span class="pre">float</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">precisions</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Sequence</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">random_state</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">12345</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_candidate_points</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">192</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_decision_points</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1024</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">progress_callback</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Callable</span><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">[</span></span><span class="pre">Sequence</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="#musrbeamsteer.gp_kg_minimizer.Observation" title="musrbeamsteer.gp_kg_minimizer.Observation"><span class="pre">Observation</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">float</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">None</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">verbose</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="#musrbeamsteer.gp_kg_minimizer.SearchResult" title="musrbeamsteer.gp_kg_minimizer.SearchResult"><span class="pre">SearchResult</span></a></span></span><a class="headerlink" href="#musrbeamsteer.gp_kg_minimizer.search_minimum" title="Link to this definition"></a></dt>
+<dd><p>Sequentially search for a noisy minimum.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>accuracy</strong> – Stop when the current one-step Knowledge Gradient is below this value.
+Units are the CURRENT units returned by extract_metrics().</p></li>
+<li><p><strong>bounds</strong> – [(min_1,max_1), …, (min_N,max_N)].</p></li>
+<li><p><strong>get_measurement</strong> – <p>User callback:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">measurement</span> <span class="o">=</span> <span class="n">get_measurement</span><span class="p">(</span><span class="n">coordinate</span><span class="p">)</span>
+</pre></div>
+</div>
+</p></li>
+<li><p><strong>extract_metrics</strong> – <p>Global user callback:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">metrics</span> <span class="o">=</span> <span class="n">extract_metrics</span><span class="p">(</span><span class="n">all_measurements</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>It receives EVERY measurement collected so far and must return one
+scalar metric per measurement, in the same order. It is re-run after
+every new sequential measurement, so earlier metrics may change.
+This is suitable for PCA and other global analyses.</p>
+</p></li>
+<li><p><strong>initial_coordinates</strong> – User-specified starting coordinates. They do NOT need to be extrema.
+If None, default_initial_coordinates(bounds) is used only as a
+convenience fallback.</p></li>
+<li><p><strong>minimum_step_sizes</strong> – Minimum per-dimension change between successive non-repeated
+measurements. A proposed change smaller than the configured value is
+expanded in the proposed direction, subject to the bounds. Repeated
+initial measurements are preserved for noise estimation.</p></li>
+<li><p><strong>precisions</strong> – Number of decimal places allowed for each coordinate. Proposed,
+measured, reported, and final coordinates are rounded accordingly.</p></li>
+<li><p><strong>initial_repeats</strong> – Number of measurements at each initial coordinate. Normally &gt;=2 so
+the unknown absolute noise can be estimated.</p></li>
+<li><p><strong>progress_callback</strong> – <p>Optional callback after all current metrics have been recomputed:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">progress_callback</span><span class="p">(</span><span class="n">observations</span><span class="p">,</span> <span class="n">estimated_noise_std</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Every Observation.metric is the CURRENT globally recomputed value.</p>
+</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The estimated minimum and complete observation history.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="#musrbeamsteer.gp_kg_minimizer.SearchResult" title="musrbeamsteer.gp_kg_minimizer.SearchResult">SearchResult</a></p>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><ul class="simple">
+<li><p><strong>ValueError</strong> – If search settings or callback results are invalid.</p></li>
+<li><p><strong>RuntimeError</strong> – If no measurements are acquired.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+<section id="musrbeamsteer-integrated-gp-module">
+<h2>musrbeamsteer.integrated_gp module<a class="headerlink" href="#musrbeamsteer-integrated-gp-module" title="Link to this heading"></a></h2>
+</section>
+<section id="musrbeamsteer-optimised-integrated-gp-module">
+<h2>musrbeamsteer.optimised_integrated_gp module<a class="headerlink" href="#musrbeamsteer-optimised-integrated-gp-module" title="Link to this heading"></a></h2>
+</section>
+<section id="module-musrbeamsteer">
+<span id="module-contents"></span><h2>Module contents<a class="headerlink" href="#module-musrbeamsteer" title="Link to this heading"></a></h2>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="modules.html" class="btn btn-neutral float-left" title="musrbeamsteer" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="musrbeamsteer.TT_PCA.html" class="btn btn-neutral float-right" title="musrbeamsteer.TT_PCA package" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, Isaac.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

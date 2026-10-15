@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools >= 61.0.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "musrbeamsteer"
+authors = [{name = "Isaac Baulk"}]
+version = "0.1"
+requires-python = ">= 3.12"
+readme = "README.md"
+description = ""
+license = {text = "BSD-3-Clause"}
+
+keywords = []
+dependencies = ["cowsay", "numpy", "mantid", "genie_python", "dataclasses", "typing", "scipy", "scikit-learn"]
+classifiers = []
+
+[project.urls]
+Homepage="https://github.com/isaac-baulk/musrbeamsteer"
+Repository="https://github.com/isaac-baulk/musrbeamsteer.git"
+
+[project.optional-dependencies]
+docs = ["sphinx",
+        "sphinx_rtd_theme",]
+
+test = ["pytest"]
