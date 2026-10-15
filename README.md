@@ -1,4 +1,4 @@
-## Mantid Beam Steering
+## MuSR Beam Steering
 
 This project relies on the https://github.com/TymoteuszTula/PCA_Exp repo. DOI: https://doi.org/10.5281/zenodo.4495484
 Relevant files are found in ```musrbeamsteer/TT_PCA```. I use this tool to use PCA as a possible metric function in the optimisation process.
