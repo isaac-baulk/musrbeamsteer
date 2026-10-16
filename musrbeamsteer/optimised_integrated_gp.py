@@ -18,7 +18,6 @@ from mantid.simpleapi import *
 from mantid.api import AlgorithmManager
 from mantid.kernel import ConfigService
 from genie_python import genie as g
-from cowsay import cow
 from concurrent.futures import ThreadPoolExecutor, wait
 
 from gp_kg_minimizer import Observation, search_minimum
@@ -55,10 +54,10 @@ LAST_GOOD_VALUE = 14
 # ==========================================================================
 
 if TEST_MODE:
-    INPUT_DIR = "data/incoming_nexus"
-    OUTPUT_DIR = "data/processed_nexus"
+    INPUT_DIR = Path("data/incoming_nexus")
+    OUTPUT_DIR = Path("data/processed_nexus")
     ALPHA_FILE = None
-    DUMMY_NEXUS_DIR = "data/dummy_nexus"
+    DUMMY_NEXUS_DIR = Path("data/dummy_nexus")
     dummy_run_files = sorted(Path(DUMMY_NEXUS_DIR).glob("musr*.nxs"))
     if not dummy_run_files:
         raise FileNotFoundError(f"No dummy Nexus files found in {DUMMY_NEXUS_DIR}.")
@@ -70,7 +69,7 @@ if TEST_MODE:
 
 else:
     INPUT_DIR = Path("//musr/Data")
-    OUTPUT_DIR = "data/processed_nexus"
+    OUTPUT_DIR = Path("data/processed_nexus")
     ALPHA_FILE = None
     DUMMY_NEXUS_DIR = None
     g.set_instrument("NDXMUSR")
@@ -487,9 +486,11 @@ def metric_function(measurements: Sequence[Mapping[str, Any]]) -> list[float]:
     ValueError
         If output data are unavailable or a run is not in PCA output.
     """
-    alpha = get_alpha(ALPHA_FILE, SPECTRA_CFG["forward"], SPECTRA_CFG["backward"], LAST_GOOD_VALUE) if CALCULATE_ALPHA else 1
-    
-    state.sync_and_process_batch(measurements, alpha)
+    # Wait for all background Mantid reductions to finish
+    if state.active_futures:
+        wait(state.active_futures)
+        # Clear the list so we don't wait on old threads next iteration
+        state.active_futures.clear() 
 
     txt_files = sorted(state.output_dir.glob("musr*.txt"))
     if not txt_files:
@@ -629,6 +630,11 @@ def get_measurement(coordinate: Sequence[float]) -> dict[str, object]:
         destination_path, run_number = _get_test_destination()
         shutil.copy2(source_path, destination_path)
         state.dummy_measurement_paths.add(destination_path)
+
+        # Fire background thread
+        future = state.executor.submit(state.process_single_run, int(run_number), destination_path)
+        state.active_futures.append(future)
+
         return {"run_number": run_number, "coordinate": tuple(float(v) for v in coordinate), "mevents": MEVENTS_PER_MEASUREMENT}
 
     for item, value in zip(SCAN_PVS, coordinate):
@@ -646,6 +652,11 @@ def get_measurement(coordinate: Sequence[float]) -> dict[str, object]:
     g.waitfor(mevents=MEVENTS_PER_MEASUREMENT, quiet=False)
     actual_mevents = float(g.get_mevents())
     g.end(quiet=True)
+
+    # Fire background thread for the live run
+    nxs_path = get_path_from_run(state.input_dir, int(run_number), ".nxs")
+    future = state.executor.submit(state.process_single_run, int(run_number), nxs_path)
+    state.active_futures.append(future)
 
     return {"run_number": run_number, "coordinate": tuple(float(v) for v in coordinate), "mevents": actual_mevents}
 
@@ -689,5 +700,5 @@ if __name__ == "__main__":
         verbose=True,
     )
 
-    cow(f"Optimizer result: {result.coordinate}")
-    cow(f"Minimum metric: {result.value}")
+    print(f"Optimizer result: {result.coordinate}")
+    print(f"Minimum metric: {result.value}")
