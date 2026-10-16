@@ -18,7 +18,6 @@ from mantid.simpleapi import *
 from mantid.api import AlgorithmManager
 from mantid.kernel import ConfigService
 from genie_python import genie as g
-from cowsay import cow
 
 from gp_kg_minimizer import Observation, search_minimum
 from TT_PCA.data_handler import DataHandler
@@ -666,5 +665,5 @@ if __name__ == "__main__":
         verbose=True,
     )
 
-    cow(f"Optimizer result: {result.coordinate}")
-    cow(f"Minimum metric: {result.value}")
+    print(f"Optimizer result: {result.coordinate}")
+    print(f"Minimum metric: {result.value}")
