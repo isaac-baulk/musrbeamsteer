@@ -75,6 +75,7 @@ class SearchResult:
     n_measurements: int
     converged: bool
     observations: list[Observation]
+    kg: float
 
 
 def _validate_bounds(bounds: Sequence[Sequence[float]]) -> np.ndarray:
@@ -976,6 +977,7 @@ def search_minimum(
 
     observations: list[Observation] = []
     converged = False
+    kg = 0.0
 
     def acquire(coordinate: np.ndarray) -> None:
         """Acquire one measurement and append it to the observation list.
@@ -1098,4 +1100,5 @@ def search_minimum(
         n_measurements=len(observations),
         converged=converged,
         observations=observations,
+        kg=kg,
     )

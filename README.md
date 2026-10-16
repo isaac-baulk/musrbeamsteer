@@ -4,8 +4,6 @@ Program to automatically steer beam onto sample in MuSR. Uses Mantid for data re
 and a Generic Gaussian-Process + approximate Knowledge-Gradient Bayesian optimisation process to choose the next set of currents for steering magnets. 
 This code has capabilities to be generalised to a wide range of settings where various PVs must be scanned over and a certain metric should be minimised.
 
-Checkout ```cow``` for a surprise.
-
 This project relies on the <https://github.com/TymoteuszTula/PCA_Exp> repo. DOI: <https://doi.org/10.5281/zenodo.4495484>
 Relevant files are found in ```musrbeamsteer/TT_PCA```. I use this tool to use PCA as a possible metric function in the optimisation process.
 

@@ -665,5 +665,7 @@ if __name__ == "__main__":
         verbose=True,
     )
 
-    print(f"Optimizer result: {result.coordinate}")
+    print(f"Optimizer result: {result.coordinate}. The model predicts further scanning would only improve the beam alignment score by {result.kg:.8g}"
+          f" compared to predefined accuracy of {ACCURACY}. The noise in this coordinate is estimated to be {result.estimated_noise_std:.8g}"
+          f" and the optimizer performed {len(result.observations)} measurements.")
     print(f"Minimum metric: {result.value}")
