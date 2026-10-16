@@ -19,6 +19,7 @@ from mantid.api import AlgorithmManager
 from mantid.kernel import ConfigService
 from genie_python import genie as g
 from cowsay import cow
+from concurrent.futures import ThreadPoolExecutor, wait
 
 from gp_kg_minimizer import Observation, search_minimum
 from TT_PCA.data_handler import DataHandler
@@ -151,15 +152,33 @@ class BeamOptimizerState:
         The run number marking the beginning of the optimization sequence.
     """
 
-    def __init__(self, input_dir: Path, output_dir: Path, start_run_number: int):
+    def __init__(self, input_dir: Path, output_dir: Path, start_run_number: int, alpha: Any):
         self.input_dir = input_dir
         self.output_dir = output_dir
         self.start_run_number = start_run_number
+        self.alpha = alpha
         
         self.bin_params_cache = None
         self.dummy_measurement_files = None
         self.dummy_measurement_paths = set()
         self.next_test_run_number = 900000
+
+        # Threading state
+        self.executor = ThreadPoolExecutor(max_workers=2)
+        self.active_futures = []
+
+    def process_single_run(self, run_number: int, nxs_path: Path):
+        """Reduces a single Nexus file in the background."""
+        # Wait briefly for the file system to release the lock after GENIE saves it
+        time.sleep(1) 
+        
+        ws, params = self.get_asymmetry(nxs_path, self.alpha)
+        
+        out_path = get_path_from_run(self.output_dir, run_number, ".txt")
+        temp_path = out_path.with_suffix(".tmp")
+        
+        self._write_asymmetry_to_txt(ws, params, temp_path, nxs_path)
+        temp_path.rename(out_path)
 
     def sync_and_process_batch(self, measurements: Sequence[Mapping[str, Any]], alpha: Any) -> None:
         """
@@ -298,9 +317,6 @@ class BeamOptimizerState:
         )
         return f_b_counts, params
 
-state = BeamOptimizerState(INPUT_DIR, OUTPUT_DIR, START_RUN_NUMBER)
-
-
 # ==========================================================================
 # MANTID LOGIC
 # ==========================================================================
@@ -407,6 +423,13 @@ def calculate_constant_error_bins(workspace: Any, start_time: float, end_time: f
             mantid_params.extend([step, end])
     return mantid_params
 
+# Calculate alpha once globally
+if CALCULATE_ALPHA:
+    global_alpha = get_alpha(ALPHA_FILE, SPECTRA_CFG["forward"], SPECTRA_CFG["backward"], LAST_GOOD_VALUE)
+else:
+    global_alpha = 1
+
+state = BeamOptimizerState(INPUT_DIR, OUTPUT_DIR, START_RUN_NUMBER, global_alpha)
 
 # ==========================================================================
 # PCA & METRIC EXTRACTION
