@@ -6,10 +6,13 @@
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
+import musrbeamsteer
+from datetime import date
+
 project = 'musrbeamsteer'
-copyright = '2026, Isaac'
-author = 'Isaac'
-release = '0.1'
+copyright = f'{date.today().year}, {musrbeamsteer.__author__}'
+author = musrbeamsteer.__author__
+release = musrbeamsteer.__version__
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
@@ -19,6 +22,7 @@ extensions = [
     "sphinx.ext.napoleon",
     "sphinx.ext.autosummary",
     "sphinx.ext.apidoc",
+    "myst_parser",
 ]
 
 templates_path = ['_templates']
@@ -28,6 +32,8 @@ apidoc_modules = [
     {"path": "../../musrbeamsteer",
      "destination": "api",}
 ]
+
+autodoc_typehints = 'both'
 
 # -- Options for HTML output -------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output

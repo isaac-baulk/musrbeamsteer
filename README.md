@@ -15,6 +15,11 @@ Would not yet recommend pip installing the package as dependencies are slightly 
 
 To run code, naviagte into ```musrbeamsteer``` and execute ```optimised_integrated_gp.py```. Change settings as required under USER CONFIGURATION.
 
+## Docs
+
+Docs are a bit of a WIP but cna be found at https://isaac-baulk.github.io/musrbeamsteer/.
+
+
 ## License
 
 This project is licensed under the GNU General Public License v3.0 (GPLv3) - see the [LICENSE](LICENSE) file for details. 
