@@ -6,19 +6,26 @@ This code has capabilities to be generalised to a wide range of settings where v
 
 Checkout ```cow``` for a surprise.
 
-This project relies on the https://github.com/TymoteuszTula/PCA_Exp repo. DOI: https://doi.org/10.5281/zenodo.4495484
+This project relies on the <https://github.com/TymoteuszTula/PCA_Exp> repo. DOI: <https://doi.org/10.5281/zenodo.4495484>
 Relevant files are found in ```musrbeamsteer/TT_PCA```. I use this tool to use PCA as a possible metric function in the optimisation process.
 
-## Useage
+Credit to Alex Louat for developing ```gp_kg_minimizer.py```.
 
-Would not yet recommend pip installing the package as dependencies are slightly complicated. Mantid must be installed in a mamba env (see https://www.mantidproject.org/installation/index) and genie_python pip installed into the same env.
+## Dependencies and Usage
+
+Would not yet recommend pip installing the package as dependencies are slightly complicated. Mantid must be installed in a mamba env (see <https://www.mantidproject.org/installation/index>) and genie_python pip installed into the same env. Other dependencies can be conda/pip installed at your preference.
+
+Other dependencies:
+- Python 3.12
+- numpy
+- scipy
+- scikit-learn
 
 To run code, naviagte into ```musrbeamsteer``` and execute ```optimised_integrated_gp.py```. Change settings as required under USER CONFIGURATION.
 
 ## Docs
 
-Docs are a bit of a WIP but cna be found at https://isaac-baulk.github.io/musrbeamsteer/.
-
+Docs are a bit of a WIP but can be found at <https://isaac-baulk.github.io/musrbeamsteer/>.
 
 ## License
 
