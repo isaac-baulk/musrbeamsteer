@@ -53,10 +53,10 @@ LAST_GOOD_VALUE = 14
 # ==========================================================================
 
 if TEST_MODE:
-    INPUT_DIR = "data/incoming_nexus"
-    OUTPUT_DIR = "data/processed_nexus"
+    INPUT_DIR = Path("data/incoming_nexus")
+    OUTPUT_DIR = Path("data/processed_nexus")
     ALPHA_FILE = None
-    DUMMY_NEXUS_DIR = "data/dummy_nexus"
+    DUMMY_NEXUS_DIR = Path("data/dummy_nexus")
     dummy_run_files = sorted(Path(DUMMY_NEXUS_DIR).glob("musr*.nxs"))
     if not dummy_run_files:
         raise FileNotFoundError(f"No dummy Nexus files found in {DUMMY_NEXUS_DIR}.")
@@ -68,7 +68,7 @@ if TEST_MODE:
 
 else:
     INPUT_DIR = Path("//musr/Data")
-    OUTPUT_DIR = "data/processed_nexus"
+    OUTPUT_DIR = Path("data/processed_nexus")
     ALPHA_FILE = None
     DUMMY_NEXUS_DIR = None
     g.set_instrument("NDXMUSR")
