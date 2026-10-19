@@ -1029,8 +1029,10 @@ def search_minimum(
 
     # Collect the whole initial design before the first global metric fit.
     # This is friendlier to PCA and similar methods that need multiple runs.
-    for coordinate in initial_coordinates:
-        for _ in range(initial_repeats):
+    for index, coordinate in enumerate(initial_coordinates):
+        # only repeat the first coordinate to estimate noise variance
+        repeats = initial_repeats if index == 0 else 1
+        for _ in range(repeats):
             if len(observations) >= max_measurements:
                 break
             acquire(coordinate)

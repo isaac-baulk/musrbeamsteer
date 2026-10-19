@@ -651,6 +651,13 @@ if __name__ == "__main__":
         else:
             entry.unlink()
 
+    if TEST_MODE and INPUT_DIR is not Path("//musr/Data"):
+        for entry in INPUT_DIR.iterdir():
+            if entry.is_dir() and not entry.is_symlink():
+                shutil.rmtree(entry)
+            else:
+                entry.unlink()
+
     result = search_minimum(
         accuracy=ACCURACY,
         bounds=BOUNDS,
