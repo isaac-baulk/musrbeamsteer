@@ -1,3 +1,4 @@
 *.txt
 *.nxs
+**/__pycache__/
 *.egg-info
