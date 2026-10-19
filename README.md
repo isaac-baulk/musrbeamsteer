@@ -15,6 +15,7 @@ Would not yet recommend pip installing the package as dependencies are slightly 
 
 Other dependencies:
 - numpy
+- matplotlib
 - scipy
 - scikit-learn
 

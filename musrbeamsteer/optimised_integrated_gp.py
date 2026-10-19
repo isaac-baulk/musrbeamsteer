@@ -10,9 +10,11 @@ import os
 import time
 import re
 import shutil
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 import numpy as np
+import matplotlib.pyplot as plt
 
 from mantid.simpleapi import *
 from mantid.api import AlgorithmManager
@@ -24,12 +26,12 @@ from gp_kg_minimizer import Observation, search_minimum
 from TT_PCA.data_handler import DataHandler
 from TT_PCA.pca_machine import PCAMachine
 
-
 # ==========================================================================
 # USER CONFIGURATION
 # ==========================================================================
 
 TEST_MODE = True
+LIVE_PLOT = True
 PROCESSED_RUNS_LOG = "processed_runs.log"
 CALCULATE_ALPHA = False
 SUPPRESS_MANTID_STATUS_LOGS = True
@@ -48,72 +50,92 @@ INITIAL_REPEATS = 2
 MAX_MEASUREMENTS = 30
 LAST_GOOD_VALUE = 14
 
-
 # ==========================================================================
-# SETUP & CONFIGURATION PARSING
+# LIVE PLOT
 # ==========================================================================
+class LiveOptimizerPlot:
+    def __init__(self, bounds: list[tuple[float, float]], pv_names: list[str]):
+        """Initialize the live interactive plot."""
+        plt.ion()  # Turn on interactive mode for live animation
+        self.fig, self.ax = plt.subplots(figsize=(9, 8))
+        self.bounds = bounds
+        self.pv_names = pv_names
+        self.cbar = None
 
-if TEST_MODE:
-    INPUT_DIR = Path("data/incoming_nexus")
-    OUTPUT_DIR = Path("data/processed_nexus")
-    ALPHA_FILE = None
-    DUMMY_NEXUS_DIR = Path("data/dummy_nexus")
-    dummy_run_files = sorted(Path(DUMMY_NEXUS_DIR).glob("musr*.nxs"))
-    if not dummy_run_files:
-        raise FileNotFoundError(f"No dummy Nexus files found in {DUMMY_NEXUS_DIR}.")
-    
-    first_dummy_run = re.fullmatch(r"musr(\d+)\.nxs", dummy_run_files[0].name, re.IGNORECASE)
-    if first_dummy_run is None:
-        raise ValueError(f"First dummy Nexus file has an invalid run name: {dummy_run_files[0].name}.")
-    START_RUN_NUMBER = int(first_dummy_run.group(1).lstrip("0") or "0")
+    def update(self, observations: Sequence[Observation]) -> None:
+        """Clear and redraw the plot with the latest observation data."""
+        self.ax.clear()
+        self.ax.grid(True, which='both', linestyle='--', linewidth=0.5)
+        
+        # 1. Extract valid coordinates and metrics
+        x_vals, y_vals, metrics, indices = [], [], [], []
+        for i, obs in enumerate(observations):
+            if np.isfinite(obs.metric):
+                x_vals.append(obs.coordinate[0])
+                y_vals.append(obs.coordinate[1])
+                metrics.append(obs.metric)
+                indices.append(i + 1) # 1-based indexing for the labels[cite: 32]
+                
+        if not x_vals:
+            plt.pause(0.01)
+            return
 
-else:
-    INPUT_DIR = Path("//musr/Data")
-    OUTPUT_DIR = Path("data/processed_nexus")
-    ALPHA_FILE = None
-    DUMMY_NEXUS_DIR = None
-    g.set_instrument("NDXMUSR")
-    START_RUN_NUMBER = int(g.get_runnumber())
-    print('Starting from run number:', START_RUN_NUMBER)
+        # 2. Draw the dashed boundary box[cite: 32]
+        min_x, max_x = self.bounds[0]
+        min_y, max_y = self.bounds[1]
+        self.ax.plot(
+            [min_x, max_x, max_x, min_x, min_x], 
+            [min_y, min_y, max_y, max_y, min_y], 
+            'k--', linewidth=2, label="Scan bounds"
+        )
+        self.ax.text(min_x + 0.01, max_y + 0.02, f"Scan bounds: {self.pv_names[0]} [{min_x}, {max_x}], {self.pv_names[1]} [{min_y}, {max_y}]", fontsize=8)
 
-if SUPPRESS_MANTID_STATUS_LOGS:
-    ConfigService["logging.loggers.root.level"] = "error" 
+        # 3. Draw the path arrows[cite: 32]
+        for i in range(1, len(x_vals)):
+            self.ax.annotate(
+                '', xy=(x_vals[i], y_vals[i]), xytext=(x_vals[i-1], y_vals[i-1]),
+                arrowprops=dict(arrowstyle='->', color='gray', shrinkA=6, shrinkB=6)
+            )
 
-BOUNDS = [item["bounds"] for item in SCAN_PVS]
-MINIMUM_STEP_SIZES = [item["minimum_step_size"] for item in SCAN_PVS]
-PRECISIONS = [item["precision"] for item in SCAN_PVS]
+        # 4. Scatter points colored by metric[cite: 32]
+        # 'coolwarm' matches the red/blue PCA score gradient in the screenshot
+        sc = self.ax.scatter(x_vals, y_vals, c=metrics, cmap='viridis', s=80, edgecolors='k', zorder=3)
+        
+        if self.cbar is None:
+            self.cbar = self.fig.colorbar(sc, ax=self.ax)
+            self.cbar.set_label('Metric Score')
+        else:
+            self.cbar.update_normal(sc)
 
-SPECTRA_CFG = {
-    True: {"forward": list(range(33, 65)), "backward": list(range(1, 33)), "first": 0, "second": 1},
-    False: {"forward": list(range(9, 17)) + list(range(57, 65)), "backward": list(range(25, 33)) + list(range(41, 49)), "first": 3, "second": 1}
-}[LONGITUDINAL_MODE]
+        # 5. Add measurement number labels[cite: 32]
+        for i, idx in enumerate(indices):
+            self.ax.text(x_vals[i] + 0.015, y_vals[i] + 0.015, str(idx), fontsize=9)
 
-# USE BOUNDS TO GENERATE INITIAL COORDINATES USING LATIN HYPERCUBE SAMPLING
-# ============================================================================
-lhs_sampler = qmc.LatinHypercube(d=len(SCAN_PVS))
-sample = lhs_sampler.random(n=NUM_INITIAL_COORDINATES)
+        # 6. Highlight the absolute lowest measured metric[cite: 32]
+        min_idx = np.argmin(metrics)
+        self.ax.plot(
+            x_vals[min_idx], y_vals[min_idx], 'o', 
+            markersize=16, markerfacecolor='none', markeredgecolor='k', markeredgewidth=2, zorder=2
+        )
+        self.ax.annotate(
+            'minimum', 
+            xy=(x_vals[min_idx], y_vals[min_idx]), 
+            xytext=(x_vals[min_idx] + 0.1, y_vals[min_idx] - 0.1),
+            arrowprops=dict(arrowstyle='->', color='black', shrinkB=8),
+            fontsize=9
+        )
 
-# shrink bounds according to the optimum guesses and the original bounds
-l_bounds = np.array([
-    item["bounds"][0]
-    if item["optimum_guess"] is None
-    else item["optimum_guess"] - (abs(item["bounds"][0]) / 3)
-    for item in SCAN_PVS
-])
-
-u_bounds = np.array([
-    item["bounds"][1]
-    if item["optimum_guess"] is None
-    else item["optimum_guess"] + (abs(item["bounds"][1]) / 3)
-    for item in SCAN_PVS
-])
-
-sample_scaled = qmc.scale(sample, l_bounds, u_bounds)
-INITIAL_COORDINATES = [tuple(float(v) for v in row) for row in sample_scaled]
-
-print(f"Generated {len(INITIAL_COORDINATES)} initial coordinates using Latin hypercube sampling:")
-for coord in INITIAL_COORDINATES:
-    print("  ", ", ".join(f"{item['name']}={value:+.6g}" for item, value in zip(SCAN_PVS, coord)))
+        # 7. Formatting
+        self.ax.set_xlabel(f"{self.pv_names[0]} steering current")
+        self.ax.set_ylabel(f"{self.pv_names[1]} steering current")
+        self.ax.set_title('Live Metric Optimization')
+        self.ax.set_xlim(min_x - 0.1, max_x + 0.1)
+        self.ax.set_ylim(min_y - 0.1, max_y + 0.1)
+        
+        # Flush GUI events to animate
+        self.fig.canvas.draw()
+        self.fig.canvas.flush_events()
+        plt.pause(0.01)
 
 # ==========================================================================
 # PATH & RUN LOGIC
@@ -163,24 +185,44 @@ def get_path_from_run(directory: Path, run_number: int, extension: str, prefix: 
 # STATE ENCAPSULATION
 # ==========================================================================
 
+@dataclass
+class RuntimeConfig:
+    """Resolved configuration used by one optimizer run."""
+
+    test_mode: bool
+    scan_pvs: list[dict[str, object]]
+    spectra_cfg: dict[str, object]
+    input_dir: Path
+    output_dir: Path
+    dummy_nexus_dir: Path | None
+    alpha_file: Path | None
+    last_good_value: float
+    processed_runs_log: str
+    calculate_alpha: bool
+    mevents_per_measurement: int
+    settle_seconds: float
+    start_run_number: int
+    bounds: list[tuple[float, float]]
+    minimum_step_sizes: list[float]
+    precisions: list[int]
+    initial_coordinates: list[tuple[float, ...]]
+
+
 class BeamOptimizerState:
     """
     Encapsulates the state and data reduction logic for the beam optimizer.
 
     Parameters
     ----------
-    input_dir : pathlib.Path
-        Directory where incoming raw Nexus files are stored.
-    output_dir : pathlib.Path
-        Directory where processed text files will be saved.
-    start_run_number : int
-        The run number marking the beginning of the optimization sequence.
+    config : RuntimeConfig
+        Resolved configuration and paths for this optimizer run.
     """
 
-    def __init__(self, input_dir: Path, output_dir: Path, start_run_number: int):
-        self.input_dir = input_dir
-        self.output_dir = output_dir
-        self.start_run_number = start_run_number
+    def __init__(self, config: RuntimeConfig):
+        self.config = config
+        self.input_dir = config.input_dir
+        self.output_dir = config.output_dir
+        self.start_run_number = config.start_run_number
         
         self.bin_params_cache = None
         self.dummy_measurement_files = None
@@ -206,7 +248,7 @@ class BeamOptimizerState:
                 break
             time.sleep(1)
 
-        processed_log_path = self.output_dir / PROCESSED_RUNS_LOG
+        processed_log_path = self.output_dir / self.config.processed_runs_log
         processed_runs = self._load_processed_runs(processed_log_path)
 
         for nxs_path in sorted(self.input_dir.glob("musr*.nxs")):
@@ -216,7 +258,8 @@ class BeamOptimizerState:
                 continue
 
             ws, params = self.get_asymmetry(nxs_path, alpha)
-            
+
+            #first write to a temp file before renaming to the final output path to avoid partial writes
             out_path = get_path_from_run(self.output_dir, run_number, ".txt")
             temp_path = out_path.with_suffix(".tmp")
             
@@ -306,13 +349,15 @@ class BeamOptimizerState:
         load_result = LoadMuonNexus(Filename=str(nexus_file_path), OutputWorkspace="test_result", DetectorGroupingTable="grouping", DeadTimeTable='deadtimes')
         loaded_time_zero, loaded_time_good = load_result[2], load_result[3]
         shifted_time_good = loaded_time_good - loaded_time_zero
-        shifted_last_good = LAST_GOOD_VALUE - loaded_time_zero
-        params = get_parameters(load_result[0])
+        shifted_last_good = self.config.last_good_value - loaded_time_zero
+        params = get_parameters(load_result[0], self.config.scan_pvs)
             
         if self.bin_params_cache is None:
             self.bin_params_cache = calculate_constant_error_bins(
                 load_result[0], shifted_time_good, shifted_last_good, 5000, 
-                SPECTRA_CFG["forward"], SPECTRA_CFG["backward"], loaded_time_zero
+                self.config.spectra_cfg["forward"],
+                self.config.spectra_cfg["backward"],
+                loaded_time_zero,
             )
 
         f_b_counts = MuonProcess(
@@ -320,18 +365,22 @@ class BeamOptimizerState:
             DetectorGroupingTable='grouping', SummedPeriodSet="1", LoadedTimeZero=loaded_time_zero,
             OutputType="PairAsymmetry", DeadTimeTable='deadtimes', Xmin=shifted_time_good,
             Xmax=shifted_last_good, Alpha=alpha, ApplyDeadTimeCorrection=True,
-            PairFirstIndex=SPECTRA_CFG["first"], PairSecondIndex=SPECTRA_CFG["second"], RebinParams=self.bin_params_cache
+            PairFirstIndex=self.config.spectra_cfg["first"],
+            PairSecondIndex=self.config.spectra_cfg["second"],
+            RebinParams=self.bin_params_cache
         )
         return f_b_counts, params
-
-state = BeamOptimizerState(INPUT_DIR, OUTPUT_DIR, START_RUN_NUMBER)
 
 
 # ==========================================================================
 # MANTID LOGIC
 # ==========================================================================
 
-def get_parameters(ws: Any, round_flag: bool = False) -> dict[str, float]:
+def get_parameters(
+    ws: Any,
+    scan_pvs: Sequence[Mapping[str, object]],
+    round_flag: bool = False,
+) -> dict[str, float]:
     """
     Return the configured steering PV averages recorded in a workspace.
 
@@ -339,6 +388,8 @@ def get_parameters(ws: Any, round_flag: bool = False) -> dict[str, float]:
     ----------
     ws : Any
         Mantid workspace containing the steering process-variable logs.
+    scan_pvs : sequence of mapping
+        Configured steering process variables whose logs should be read.
     round_flag : bool, optional
         Whether values should be rounded to two decimal places, by default False.
 
@@ -353,7 +404,10 @@ def get_parameters(ws: Any, round_flag: bool = False) -> dict[str, float]:
             return run.getProperty(log_name).getStatistics().time_mean
         except RuntimeError:
             return None
-    raw_parameters = {pv["name"]: get_time_avg(pv["name"]) for pv in SCAN_PVS}
+    raw_parameters = {
+        str(pv["name"]): get_time_avg(str(pv["name"]))
+        for pv in scan_pvs
+    }
     if round_flag:
         raw_parameters = {k: round(v, 2) for k, v in raw_parameters.items()}
     return {k: v for k, v in raw_parameters.items() if v is not None}
@@ -438,7 +492,12 @@ def calculate_constant_error_bins(workspace: Any, start_time: float, end_time: f
 # PCA & METRIC EXTRACTION
 # ==========================================================================
 
-def get_parameters_from_files(stsp: tuple[int, int], prenum: str, ext: str) -> list[dict[str, float | int]]:
+def get_parameters_from_files(
+    state: BeamOptimizerState,
+    stsp: tuple[int, int],
+    prenum: str,
+    ext: str,
+) -> list[dict[str, float | int]]:
     """
     Read steering metadata written in processed text-file headers.
 
@@ -471,7 +530,10 @@ def get_parameters_from_files(stsp: tuple[int, int], prenum: str, ext: str) -> l
         metadata.append(file_metadata)
     return metadata
     
-def metric_function(measurements: Sequence[Mapping[str, Any]]) -> list[float]:
+def metric_function(
+    state: BeamOptimizerState,
+    measurements: Sequence[Mapping[str, Any]],
+) -> list[float]:
     """
     Process all measurements and return one PCA metric per optimizer run.
 
@@ -490,7 +552,16 @@ def metric_function(measurements: Sequence[Mapping[str, Any]]) -> list[float]:
     ValueError
         If output data are unavailable or a run is not in PCA output.
     """
-    alpha = get_alpha(ALPHA_FILE, SPECTRA_CFG["forward"], SPECTRA_CFG["backward"], LAST_GOOD_VALUE) if CALCULATE_ALPHA else 1
+    alpha = (
+        get_alpha(
+            state.config.alpha_file,
+            state.config.spectra_cfg["forward"],
+            state.config.spectra_cfg["backward"],
+            state.config.last_good_value,
+        )
+        if state.config.calculate_alpha
+        else 1
+    )
     
     state.sync_and_process_batch(measurements, alpha)
 
@@ -504,7 +575,7 @@ def metric_function(measurements: Sequence[Mapping[str, Any]]) -> list[float]:
     dh = DataHandler()
     dh.load_batch(loc=str(state.output_dir) + '\\', stsp=(first_run, last_run), prenum="musr00", ext=".txt", skiprows=1)
     
-    pvs = get_parameters_from_files((first_run, last_run), "musr", ".txt")
+    pvs = get_parameters_from_files(state, (first_run, last_run), "musr", ".txt")
     
     dh.prepare_XYE_PCA()
     pca_machine = PCAMachine(dh)
@@ -542,7 +613,10 @@ def metric_function(measurements: Sequence[Mapping[str, Any]]) -> list[float]:
 # OPTIMIZER CONTROL
 # ==========================================================================
 
-def _get_dummy_measurement_file(coordinate: np.ndarray) -> Path:
+def _get_dummy_measurement_file(
+    state: BeamOptimizerState,
+    coordinate: np.ndarray,
+) -> Path:
     """
     Select and apply the nearest available dummy-run coordinate.
 
@@ -563,16 +637,22 @@ def _get_dummy_measurement_file(coordinate: np.ndarray) -> Path:
     """
     if state.dummy_measurement_files is None:
         state.dummy_measurement_files = []
-        for source_path in sorted(DUMMY_NEXUS_DIR.glob("*.nxs")):
-            if ALPHA_FILE and source_path == Path(ALPHA_FILE):
+        if state.config.dummy_nexus_dir is None:
+            raise RuntimeError("Dummy Nexus directory is not configured.")
+        for source_path in sorted(state.config.dummy_nexus_dir.glob("*.nxs")):
+            if state.config.alpha_file and source_path == state.config.alpha_file:
                 continue
             workspace_name = f"dummy_{source_path.stem}"
             workspace = LoadMuonNexus(Filename=str(source_path), OutputWorkspace=workspace_name, DetectorGroupingTable="grouping", DeadTimeTable="deadtimes")[0]
-            parameters = get_parameters(workspace, round_flag=True)
+            parameters = get_parameters(
+                workspace,
+                state.config.scan_pvs,
+                round_flag=True,
+            )
             print(f"Loaded {source_path.name} with parameters: {parameters}")
             state.dummy_measurement_files.append((source_path, parameters))
 
-    parameter_names = [item["name"] for item in SCAN_PVS]
+    parameter_names = [str(item["name"]) for item in state.config.scan_pvs]
     requested_coordinate = np.asarray(coordinate, dtype=float)
     available_files = [
         (source_path, parameters) for source_path, parameters in state.dummy_measurement_files
@@ -588,7 +668,7 @@ def _get_dummy_measurement_file(coordinate: np.ndarray) -> Path:
     coordinate[:] = [parameters[name] for name in parameter_names]
     return source_path
 
-def _get_test_destination() -> tuple[Path, str]:
+def _get_test_destination(state: BeamOptimizerState) -> tuple[Path, str]:
     """
     Return a unique input path and run number for test-mode acquisition.
 
@@ -605,7 +685,10 @@ def _get_test_destination() -> tuple[Path, str]:
         if not destination_path.exists() and not archived_path.exists():
             return destination_path, str(run_number)
 
-def get_measurement(coordinate: Sequence[float]) -> dict[str, object]:
+def get_measurement(
+    state: BeamOptimizerState,
+    coordinate: Sequence[float],
+) -> dict[str, object]:
     """
     Acquire one measurement through Genie or a matching dummy Nexus run.
 
@@ -624,35 +707,47 @@ def get_measurement(coordinate: Sequence[float]) -> dict[str, object]:
     ValueError
         If the coordinate dimension is invalid.
     """
-    if len(coordinate) != len(SCAN_PVS):
+    if len(coordinate) != len(state.config.scan_pvs):
         raise ValueError("Coordinate dimension does not match the number of SCAN_PVS.")
 
-    if TEST_MODE:
-        source_path = _get_dummy_measurement_file(coordinate)
-        destination_path, run_number = _get_test_destination()
+    if state.config.test_mode:
+        source_path = _get_dummy_measurement_file(state, coordinate)
+        destination_path, run_number = _get_test_destination(state)
         shutil.copy2(source_path, destination_path)
         state.dummy_measurement_paths.add(destination_path)
-        return {"run_number": run_number, "coordinate": tuple(float(v) for v in coordinate), "mevents": MEVENTS_PER_MEASUREMENT}
+        return {
+            "run_number": run_number,
+            "coordinate": tuple(float(v) for v in coordinate),
+            "mevents": state.config.mevents_per_measurement,
+        }
 
-    for item, value in zip(SCAN_PVS, coordinate):
+    for item, value in zip(state.config.scan_pvs, coordinate):
         value = round(value, item.get("precision", 2))
         g.set_pv(item["pv"], float(value), wait=True, is_local=False)
     
-    if SETTLE_SECONDS > 0:
-        g.waitfor_time(seconds=SETTLE_SECONDS, quiet=True)
+    if state.config.settle_seconds > 0:
+        g.waitfor_time(seconds=state.config.settle_seconds, quiet=True)
 
-    title = ", ".join(f"{item['name']}={float(value):+.6g}" for item, value in zip(SCAN_PVS, coordinate))
+    title = ", ".join(
+        f"{item['name']}={float(value):+.6g}"
+        for item, value in zip(state.config.scan_pvs, coordinate)
+    )
     g.change_title(f"GP/KG scan: {title}")
     
     g.begin(quiet=True)
     run_number = str(g.get_runnumber())
-    g.waitfor(mevents=MEVENTS_PER_MEASUREMENT, quiet=False)
+    g.waitfor(mevents=state.config.mevents_per_measurement, quiet=False)
     actual_mevents = float(g.get_mevents())
     g.end(quiet=True)
 
     return {"run_number": run_number, "coordinate": tuple(float(v) for v in coordinate), "mevents": actual_mevents}
 
-def show_progress(observations: Sequence[Observation], estimated_noise_std: float | None) -> None:
+def show_progress(
+    scan_pvs: Sequence[Mapping[str, object]],
+    observations: Sequence[Observation],
+    estimated_noise_std: float | None,
+    live_plot: LiveOptimizerPlot | None = None,
+) -> None:
     """
     Print the current metric and coordinate for every observation.
 
@@ -665,37 +760,169 @@ def show_progress(observations: Sequence[Observation], estimated_noise_std: floa
     """
     print("\nCurrent global metrics:")
     for index, obs in enumerate(observations):
-        vals = ", ".join(f"{item['name']}={value:+.6g}" for item, value in zip(SCAN_PVS, obs.coordinate))
+        vals = ", ".join(
+            f"{item['name']}={value:+.6g}"
+            for item, value in zip(scan_pvs, obs.coordinate)
+        )
         print(f"  {index:2d}  run={obs.measurement['run_number']}  {vals}  metric={obs.metric:.8g}")
 
-if __name__ == "__main__":
-    os.makedirs(INPUT_DIR, exist_ok=True)
-    os.makedirs(OUTPUT_DIR, exist_ok=True)
-    
-    for entry in OUTPUT_DIR.iterdir():
+    if live_plot is not None:
+        live_plot.update(observations)
+
+def create_runtime_config() -> RuntimeConfig:
+    """Resolve paths, instrument settings, bounds, and initial coordinates."""
+    if TEST_MODE:
+        input_dir = Path("data/incoming_nexus")
+        output_dir = Path("data/processed_nexus")
+        dummy_nexus_dir = Path("data/dummy_nexus")
+        dummy_run_files = sorted(dummy_nexus_dir.glob("musr*.nxs"))
+        if not dummy_run_files:
+            raise FileNotFoundError(
+                f"No dummy Nexus files found in {dummy_nexus_dir}."
+            )
+        first_dummy_run = re.fullmatch(
+            r"musr(\d+)\.nxs",
+            dummy_run_files[0].name,
+            re.IGNORECASE,
+        )
+        if first_dummy_run is None:
+            raise ValueError(
+                f"First dummy Nexus file has an invalid run name: "
+                f"{dummy_run_files[0].name}."
+            )
+        start_run_number = int(first_dummy_run.group(1).lstrip("0") or "0")
+        alpha_file = None
+    else:
+        input_dir = Path("//musr/Data")
+        output_dir = Path("data/processed_nexus")
+        dummy_nexus_dir = None
+        alpha_file = None
+        g.set_instrument("NDXMUSR")
+        start_run_number = int(g.get_runnumber())
+        print("Starting from run number:", start_run_number)
+
+    if SUPPRESS_MANTID_STATUS_LOGS:
+        ConfigService["logging.loggers.root.level"] = "error"
+
+    bounds = [item["bounds"] for item in SCAN_PVS]
+    minimum_step_sizes = [item["minimum_step_size"] for item in SCAN_PVS]
+    precisions = [item["precision"] for item in SCAN_PVS]
+    spectra_cfg = {
+        True: {
+            "forward": list(range(33, 65)),
+            "backward": list(range(1, 33)),
+            "first": 0,
+            "second": 1,
+        },
+        False: {
+            "forward": list(range(9, 17)) + list(range(57, 65)),
+            "backward": list(range(25, 33)) + list(range(41, 49)),
+            "first": 3,
+            "second": 1,
+        },
+    }[LONGITUDINAL_MODE]
+
+    # get initial coordinates using Latin hypercube sampling
+    lhs_sampler = qmc.LatinHypercube(d=len(SCAN_PVS))
+    sample = lhs_sampler.random(n=NUM_INITIAL_COORDINATES)
+
+    # shrink bounds around the optimum guess if provided, otherwise use the full bounds
+    lower_bounds = np.array([
+        item["bounds"][0]
+        if item["optimum_guess"] is None
+        else item["optimum_guess"] - (abs(item["bounds"][0]) / 3)
+        for item in SCAN_PVS
+    ])
+    upper_bounds = np.array([
+        item["bounds"][1]
+        if item["optimum_guess"] is None
+        else item["optimum_guess"] + (abs(item["bounds"][1]) / 3)
+        for item in SCAN_PVS
+    ])
+    initial_coordinates = [
+        tuple(float(value) for value in row)
+        for row in qmc.scale(sample, lower_bounds, upper_bounds)
+    ]
+    print(
+        f"Generated {len(initial_coordinates)} initial coordinates using "
+        "Latin hypercube sampling:"
+    )
+    for coord in initial_coordinates:
+        print(
+            "  ",
+            ", ".join(
+                f"{item['name']}={value:+.6g}"
+                for item, value in zip(SCAN_PVS, coord)
+            ),
+        )
+
+    return RuntimeConfig(
+        test_mode=TEST_MODE,
+        scan_pvs=SCAN_PVS,
+        spectra_cfg=spectra_cfg,
+        input_dir=input_dir,
+        output_dir=output_dir,
+        dummy_nexus_dir=dummy_nexus_dir,
+        alpha_file=alpha_file,
+        last_good_value=LAST_GOOD_VALUE,
+        processed_runs_log=PROCESSED_RUNS_LOG,
+        calculate_alpha=CALCULATE_ALPHA,
+        mevents_per_measurement=MEVENTS_PER_MEASUREMENT,
+        settle_seconds=SETTLE_SECONDS,
+        start_run_number=start_run_number,
+        bounds=bounds,
+        minimum_step_sizes=minimum_step_sizes,
+        precisions=precisions,
+        initial_coordinates=initial_coordinates,
+    )
+
+
+def main() -> None:
+    """Run the configured beam-steering optimization."""
+    config = create_runtime_config()
+    state = BeamOptimizerState(config)
+
+    os.makedirs(config.input_dir, exist_ok=True)
+    os.makedirs(config.output_dir, exist_ok=True)
+
+    for entry in config.output_dir.iterdir():
         if entry.is_dir() and not entry.is_symlink():
             shutil.rmtree(entry)
         else:
             entry.unlink()
 
-    if TEST_MODE and INPUT_DIR is not Path("//musr/Data"):
-        for entry in INPUT_DIR.iterdir():
+    if config.test_mode:
+        for entry in config.input_dir.iterdir():
             if entry.is_dir() and not entry.is_symlink():
                 shutil.rmtree(entry)
             else:
                 entry.unlink()
 
+    live_plot = None
+    if LIVE_PLOT:
+        pv_names = [str(item["name"]) for item in config.scan_pvs]
+        live_plot = LiveOptimizerPlot(config.bounds, pv_names)
+
+    measurement_callback = lambda coordinate: get_measurement(state, coordinate)
+    metric_callback = lambda measurements: metric_function(state, measurements)
+    progress_callback = lambda observations, noise: show_progress(
+        config.scan_pvs,
+        observations,
+        noise,
+        live_plot,
+    )
+
     result = search_minimum(
         accuracy=ACCURACY,
-        bounds=BOUNDS,
-        minimum_step_sizes=MINIMUM_STEP_SIZES,
-        precisions=PRECISIONS,
-        get_measurement=get_measurement,
-        extract_metrics=metric_function,
-        initial_coordinates=INITIAL_COORDINATES,
+        bounds=config.bounds,
+        minimum_step_sizes=config.minimum_step_sizes,
+        precisions=config.precisions,
+        get_measurement=measurement_callback,
+        extract_metrics=metric_callback,
+        initial_coordinates=config.initial_coordinates,
         initial_repeats=INITIAL_REPEATS,
         max_measurements=MAX_MEASUREMENTS,
-        progress_callback=show_progress,
+        progress_callback=progress_callback,
         verbose=True,
     )
 
@@ -703,3 +930,11 @@ if __name__ == "__main__":
           f" compared to predefined accuracy of {ACCURACY}. The noise in this coordinate is estimated to be {result.estimated_noise_std:.8g}"
           f" and the optimizer performed {len(result.observations)} measurements.")
     print(f"Minimum metric: {result.value}")
+
+    if live_plot is not None:
+        plt.ioff()
+        plt.show()
+
+
+if __name__ == "__main__":
+    main()
