@@ -12,7 +12,7 @@ description = ""
 license = {text = "BSD-3-Clause"}
 
 keywords = []
-dependencies = ["cowsay", "numpy", "genie_python", "dataclasses", "typing", "scipy", "scikit-learn"]
+dependencies = ["numpy", "genie_python", "scipy", "scikit-learn"]
 classifiers = []
 
 [project.urls]
