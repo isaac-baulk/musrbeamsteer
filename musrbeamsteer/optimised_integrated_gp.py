@@ -18,6 +18,7 @@ from mantid.simpleapi import *
 from mantid.api import AlgorithmManager
 from mantid.kernel import ConfigService
 from genie_python import genie as g
+from scipy.stats import qmc
 
 from gp_kg_minimizer import Observation, search_minimum
 from TT_PCA.data_handler import DataHandler
@@ -35,16 +36,16 @@ SUPPRESS_MANTID_STATUS_LOGS = True
 LONGITUDINAL_MODE = True
 
 SCAN_PVS = [
-    {"name": "hsm_steering", "pv": "IN:MUSR:KEPCO_04:CURRENT:SP", "bounds": (-0.5, 0.5), "precision": 2, "minimum_step_size": 0.01},
-    {"name": "vsm_steering", "pv": "IN:MUSR:KEPCO_05:CURRENT:SP", "bounds": (-1.5, 1.5), "precision": 2, "minimum_step_size": 0.01},
+    {"name": "hsm_steering", "pv": "IN:MUSR:KEPCO_04:CURRENT:SP", "bounds": (-0.5, 0.5), "precision": 2, "minimum_step_size": 0.01, "optimum_guess": 0.0},
+    {"name": "vsm_steering", "pv": "IN:MUSR:KEPCO_05:CURRENT:SP", "bounds": (-1.5, 1.5), "precision": 2, "minimum_step_size": 0.01, "optimum_guess": 0.0},
 ]
 
-INITIAL_COORDINATES = [(-0.20,  0.20), (-0.20, -0.20), (0.20, 0.20), (0.20, -0.20), (0.00, 0.00), (0.10, -0.60)]
+NUM_INITIAL_COORDINATES = len(SCAN_PVS) * 3 #experimentally determined that n0 = 3 * d is a good starting point for the number of initial coordinates to sample
 MEVENTS_PER_MEASUREMENT = 1
 SETTLE_SECONDS = 2.0
 ACCURACY = 0.0001
 INITIAL_REPEATS = 2
-MAX_MEASUREMENTS = 10
+MAX_MEASUREMENTS = 30
 LAST_GOOD_VALUE = 14
 
 
@@ -87,6 +88,32 @@ SPECTRA_CFG = {
     False: {"forward": list(range(9, 17)) + list(range(57, 65)), "backward": list(range(25, 33)) + list(range(41, 49)), "first": 3, "second": 1}
 }[LONGITUDINAL_MODE]
 
+# USE BOUNDS TO GENERATE INITIAL COORDINATES USING LATIN HYPERCUBE SAMPLING
+# ============================================================================
+lhs_sampler = qmc.LatinHypercube(d=len(SCAN_PVS))
+sample = lhs_sampler.random(n=NUM_INITIAL_COORDINATES)
+
+# shrink bounds according to the optimum guesses and the original bounds
+l_bounds = np.array([
+    item["bounds"][0]
+    if item["optimum_guess"] is None
+    else item["optimum_guess"] - (abs(item["bounds"][0]) / 3)
+    for item in SCAN_PVS
+])
+
+u_bounds = np.array([
+    item["bounds"][1]
+    if item["optimum_guess"] is None
+    else item["optimum_guess"] + (abs(item["bounds"][1]) / 3)
+    for item in SCAN_PVS
+])
+
+sample_scaled = qmc.scale(sample, l_bounds, u_bounds)
+INITIAL_COORDINATES = [tuple(float(v) for v in row) for row in sample_scaled]
+
+print(f"Generated {len(INITIAL_COORDINATES)} initial coordinates using Latin hypercube sampling:")
+for coord in INITIAL_COORDINATES:
+    print("  ", ", ".join(f"{item['name']}={value:+.6g}" for item, value in zip(SCAN_PVS, coord)))
 
 # ==========================================================================
 # PATH & RUN LOGIC
