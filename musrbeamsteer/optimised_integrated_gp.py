@@ -530,7 +530,85 @@ def get_parameters_from_files(
             file_metadata[key] = float(val)
         metadata.append(file_metadata)
     return metadata
-    
+
+def integrated_asymmetry(
+    state: BeamOptimizerState,
+    measurements: Sequence[Mapping[str, Any]],
+    firstSet: bool = False
+) -> list[float]:
+    """Return one inverse-variance-weighted asymmetry value per measurement.
+
+    Each processed text file contains one row per time bin with columns
+    ``time, asymmetry, error``.  A time bin with uncertainty ``sigma_i`` is
+    weighted by ``1 / sigma_i**2``::
+
+        A_weighted = sum(A_i / sigma_i**2) / sum(1 / sigma_i**2)
+
+    The returned list follows the exact order of ``measurements``, as required
+    by ``search_minimum(..., extract_metrics=...)``.
+    """
+
+    # Process any newly acquired Nexus files into the text files containing
+    # time, asymmetry, and error columns.
+    alpha = (
+        get_alpha(
+            state.config.alpha_file,
+            state.config.spectra_cfg["forward"],
+            state.config.spectra_cfg["backward"],
+            state.config.last_good_value,
+        )
+        if state.config.calculate_alpha
+        else 1
+    )
+
+    state.sync_and_process_batch(measurements, alpha)
+
+    # Map run number -> processed text file.  Converting the run number to int
+    # makes this insensitive to leading zeros in either source.
+    txt_files = sorted(state.output_dir.glob("musr*.txt"))
+    if not txt_files:
+        raise ValueError("No text files found in output directory.")
+
+    metrics = []
+
+    for index, measurement in enumerate(measurements):
+        run_number = get_run_from_path(txt_files[index])
+        run_text = str(measurement["run_number"])
+
+        file_path = txt_files[index]
+        if file_path is None:
+            raise ValueError(
+                f"Run {run_text} requested by optimizer but no processed "
+            )
+
+        data = np.loadtxt(file_path, comments="#")
+        data = np.atleast_2d(data)
+        if data.shape[1] < 3:
+            raise ValueError(
+                f"Expected time, asymmetry, and error columns in {file_path}."
+            )
+
+        asymmetry = data[:, 1]
+        errors = data[:, 2]
+
+        # Ignore unusable bins rather than allowing NaN/Inf or a zero error bar
+        # to dominate the metric.
+        valid = (
+            np.isfinite(asymmetry)
+            & np.isfinite(errors)
+            & (errors > 0)
+        )
+        if not np.any(valid):
+            raise ValueError(
+                f"Run {run_text} contains no finite bins with positive errors."
+            )
+
+        weights = 1.0 / np.square(errors[valid])
+        weighted_asymmetry = np.sum(asymmetry[valid] * weights) / np.sum(weights)
+        metrics.append(float(weighted_asymmetry))
+
+    return metrics
+   
 def metric_function(
     state: BeamOptimizerState,
     measurements: Sequence[Mapping[str, Any]],
@@ -947,7 +1025,8 @@ def main() -> None:
         live_plot = LiveOptimizerPlot(config.bounds, pv_names)
 
     measurement_callback = lambda coordinate: get_measurement(state, coordinate)
-    metric_callback = lambda measurements, firstSet=False: metric_function(state, measurements, firstSet)
+    # choose metric_function or integrated_asymmetry
+    metric_callback = lambda measurements, firstSet=False: integrated_asymmetry(state, measurements, firstSet)
     progress_callback = lambda observations, noise: show_progress(
         config.scan_pvs,
         observations,
