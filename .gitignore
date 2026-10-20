@@ -1,4 +1,6 @@
 *.txt
 *.nxs
+!musrbeamsteer/data/dummy_nexus/*.nxs
 **/__pycache__/
 *.egg-info
+.DS_Stores

@@ -49,6 +49,7 @@ ACCURACY = 0.0001
 INITIAL_REPEATS = 2
 MAX_MEASUREMENTS = 30
 LAST_GOOD_VALUE = 14
+MIN_PC1_SIGNAL_CAPTURE = 0.3
 
 # ==========================================================================
 # LIVE PLOT
@@ -533,6 +534,7 @@ def get_parameters_from_files(
 def metric_function(
     state: BeamOptimizerState,
     measurements: Sequence[Mapping[str, Any]],
+    firstSet: bool = False
 ) -> list[float]:
     """
     Process all measurements and return one PCA metric per optimizer run.
@@ -573,13 +575,53 @@ def metric_function(
     last_run = get_run_from_path(txt_files[-1])
 
     dh = DataHandler()
-    dh.load_batch(loc=str(state.output_dir) + '\\', stsp=(first_run, last_run), prenum="musr00", ext=".txt", skiprows=1)
+    # on mac the bit after loc needs to be '/', on windows its '\\'
+    dh.load_batch(loc=str(state.output_dir) + '/', stsp=(first_run, last_run), prenum="musr00", ext=".txt", skiprows=1)
     
     pvs = get_parameters_from_files(state, (first_run, last_run), "musr", ".txt")
     
     dh.prepare_XYE_PCA()
     pca_machine = PCAMachine(dh)
     pca_machine.perform_pca()
+
+    # if its the set of initial measurements, validate whether PC1 is capturing enough signal
+    if firstSet:
+        pca_machine.print_pca_representation()
+
+        singular_values = np.asarray(pca_machine.pc_sing[0], dtype=float)
+        if singular_values.size == 0 or not np.all(np.isfinite(singular_values)):
+            raise ValueError("Cannot evaluate PCA signal capture: invalid singular values.")
+
+        pc1_signal_capture = float(
+            np.square(singular_values[0]) / np.sum(np.square(singular_values))
+        )
+        print(
+            "First-set PCA quality check: "
+            f"PC1 captures {pc1_signal_capture * 100:.1f}% of signal "
+            f"(minimum required {MIN_PC1_SIGNAL_CAPTURE * 100:.1f}%)."
+        )
+        if pc1_signal_capture < MIN_PC1_SIGNAL_CAPTURE:
+            if pc1_signal_capture > 0:
+                mev_factor = ((1.0 - pc1_signal_capture) / pc1_signal_capture) / (
+                    (1.0 - MIN_PC1_SIGNAL_CAPTURE) / MIN_PC1_SIGNAL_CAPTURE
+                )
+                mev_factor = max(1.0, float(mev_factor))
+                suggested_mevents = int(np.ceil(MEVENTS_PER_MEASUREMENT * mev_factor))
+                recommendation = (
+                    f"Suggested increase: ~{mev_factor:.2f}x MEv "
+                    f"(from {MEVENTS_PER_MEASUREMENT} to about {suggested_mevents} "
+                    "MEVENTS_PER_MEASUREMENT)."
+                )
+            else:
+                recommendation = (
+                    "PC1 capture is zero or negative, so a MEv scaling estimate is undefined. "
+                    "Increase MEVENTS_PER_MEASUREMENT substantially and rerun."
+                )
+            raise SystemExit(
+                "Aborting optimization: PC1 does not capture enough signal in the first set "
+                f"({pc1_signal_capture * 100:.1f}% < {MIN_PC1_SIGNAL_CAPTURE * 100:.1f}%). "
+                f"{recommendation}"
+            )
     
     pc1_curve = pca_machine.pc_curves[0][:, 0]
     pc1_errors = np.asarray(dh.prepared_data[0][2], dtype=float)
@@ -776,6 +818,7 @@ def create_runtime_config() -> RuntimeConfig:
         output_dir = Path("data/processed_nexus")
         dummy_nexus_dir = Path("data/dummy_nexus")
         dummy_run_files = sorted(dummy_nexus_dir.glob("musr*.nxs"))
+
         if not dummy_run_files:
             raise FileNotFoundError(
                 f"No dummy Nexus files found in {dummy_nexus_dir}."
@@ -904,7 +947,7 @@ def main() -> None:
         live_plot = LiveOptimizerPlot(config.bounds, pv_names)
 
     measurement_callback = lambda coordinate: get_measurement(state, coordinate)
-    metric_callback = lambda measurements: metric_function(state, measurements)
+    metric_callback = lambda measurements, firstSet=False: metric_function(state, measurements, firstSet)
     progress_callback = lambda observations, noise: show_progress(
         config.scan_pvs,
         observations,

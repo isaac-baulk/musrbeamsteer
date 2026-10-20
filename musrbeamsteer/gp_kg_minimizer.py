@@ -401,6 +401,7 @@ def default_initial_coordinates(
 def _recompute_all_metrics(
     observations: list[Observation],
     extract_metrics: Callable[[Sequence[Any]], Sequence[float]],
+    firstSet: bool = True,
 ) -> np.ndarray:
     """Recompute the metric for EVERY collected measurement.
 
@@ -423,7 +424,7 @@ def _recompute_all_metrics(
         If callback output has the wrong shape, length, or values.
     """
     measurements = [obs.measurement for obs in observations]
-    metrics = np.asarray(extract_metrics(measurements), dtype=float)
+    metrics = np.asarray(extract_metrics(measurements, firstSet), dtype=float)
 
     if metrics.ndim != 1:
         raise ValueError(
@@ -995,7 +996,7 @@ def search_minimum(
             )
         )
 
-    def update_metrics_and_report() -> Optional[float]:
+    def update_metrics_and_report(firstSet: bool = False) -> Optional[float]:
         """Recompute metrics, notify the callback, and optionally log progress.
 
         Returns
@@ -1003,7 +1004,7 @@ def search_minimum(
         float or None
             The current estimated noise standard deviation, if estimable.
         """
-        _recompute_all_metrics(observations, extract_metrics)
+        _recompute_all_metrics(observations, extract_metrics, firstSet)
 
         noise_std = None
         try:
@@ -1042,7 +1043,8 @@ def search_minimum(
     if not observations:
         raise RuntimeError("No measurements were acquired.")
 
-    update_metrics_and_report()
+    firstSet = True
+    update_metrics_and_report(firstSet)
 
     # Also verifies that repeated coordinates exist.
     estimate_noise_variance(observations)
