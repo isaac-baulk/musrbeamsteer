@@ -607,6 +607,7 @@ def integrated_asymmetry(
         weighted_asymmetry = np.sum(asymmetry[valid] * weights) / np.sum(weights)
         metrics.append(float(weighted_asymmetry))
 
+    # implement contrast metric for initial measurements to tell if this is a valid metric
     return metrics
    
 def metric_function(
@@ -1026,7 +1027,7 @@ def main() -> None:
 
     measurement_callback = lambda coordinate: get_measurement(state, coordinate)
     # choose metric_function or integrated_asymmetry
-    metric_callback = lambda measurements, firstSet=False: integrated_asymmetry(state, measurements, firstSet)
+    metric_callback = lambda measurements, firstSet=False: metric_function(state, measurements, firstSet)
     progress_callback = lambda observations, noise: show_progress(
         config.scan_pvs,
         observations,
