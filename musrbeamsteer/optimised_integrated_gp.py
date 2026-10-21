@@ -42,6 +42,7 @@ SCAN_PVS = [
     {"name": "vsm_steering", "pv": "IN:MUSR:KEPCO_05:CURRENT:SP", "bounds": (-1.5, 1.5), "precision": 2, "minimum_step_size": 0.01, "optimum_guess": 0.0},
 ]
 
+METRIC_FUNCTION = "Integrated asymmetry"  # "Integrated asymmetry" or "PCA score"
 NUM_INITIAL_COORDINATES = len(SCAN_PVS) * 3 #experimentally determined that n0 = 3 * d is a good starting point for the number of initial coordinates to sample
 MEVENTS_PER_MEASUREMENT = 1
 SETTLE_SECONDS = 2.0
@@ -1027,7 +1028,11 @@ def main() -> None:
 
     measurement_callback = lambda coordinate: get_measurement(state, coordinate)
     # choose metric_function or integrated_asymmetry
-    metric_callback = lambda measurements, firstSet=False: metric_function(state, measurements, firstSet)
+    metric_callback = lambda measurements, firstSet=False: {
+        "Integrated asymmetry": integrated_asymmetry,
+        "PCA score": metric_function
+        }[METRIC_FUNCTION](state, measurements, firstSet)
+
     progress_callback = lambda observations, noise: show_progress(
         config.scan_pvs,
         observations,
