@@ -43,7 +43,7 @@ SCAN_PVS = [
     {"name": "vsm_steering", "pv": "IN:MUSR:KEPCO_05:CURRENT:SP", "bounds": (-1.5, 1.5), "precision": 2, "minimum_step_size": 0.01, "optimum_guess": 0.0},
 ]
 
-METRIC_FUNCTION = "Integrated asymmetry"  # "Integrated asymmetry" or "PCA score"
+METRIC_FUNCTION = "PCA score"  # "Integrated asymmetry" or "PCA score"
 NUM_INITIAL_COORDINATES = len(SCAN_PVS) * 3 #experimentally determined that n0 = 3 * d is a good starting point for the number of initial coordinates to sample
 MEVENTS_PER_MEASUREMENT = 1
 SETTLE_SECONDS = 2.0
@@ -147,39 +147,13 @@ class LiveOptimizerPlot:
 def get_run_from_path(file_path: Path) -> int:
     """
     Extract the integer run number from a file path.
-
-    Parameters
-    ----------
-    file_path : pathlib.Path
-        The path to the file (e.g., 'musr0001234.txt' or 'processed_musr001.nxs').
-
-    Returns
-    -------
-    int
-        The extracted integer run number.
     """
     clean_name = file_path.stem.replace("processed_", "").replace("musr", "").replace("dummy_", "")
     return int(clean_name)
 
 def get_path_from_run(directory: Path, run_number: int, extension: str, prefix: str = "musr") -> Path:
     """
-    Generate a consistently formatted file path with zero-padded run numbers.
-
-    Parameters
-    ----------
-    directory : pathlib.Path
-        The directory where the file will reside.
-    run_number : int
-        The integer run number.
-    extension : str
-        The file extension, including the dot (e.g., '.nxs' or '.txt').
-    prefix : str, optional
-        The prefix before the run number, by default "musr".
-
-    Returns
-    -------
-    pathlib.Path
-        The constructed file path.
+    Construct a file path for a given run number, directory, and extension.  
     """
     return directory / f"{prefix}{run_number:08d}{extension}"
 
@@ -441,15 +415,6 @@ def get_parameters(
     """
     Return the configured steering PV averages recorded in a workspace.
 
-    Parameters
-    ----------
-    ws : Any
-        Mantid workspace containing the steering process-variable logs.
-    scan_pvs : sequence of mapping
-        Configured steering process variables whose logs should be read.
-    round_flag : bool, optional
-        Whether values should be rounded to two decimal places, by default False.
-
     Returns
     -------
     dict[str, float]
@@ -472,22 +437,6 @@ def get_parameters(
 def get_alpha(calibration_file: Path, forward_spectra: Sequence[int], backward_spectra: Sequence[int], last_good_value: float) -> Any:
     """
     Calculate the detector-pair asymmetry correction from a calibration run.
-
-    Parameters
-    ----------
-    calibration_file : pathlib.Path
-        Calibration Nexus file path.
-    forward_spectra : Sequence[int]
-        Forward detector spectrum numbers.
-    backward_spectra : Sequence[int]
-        Backward detector spectrum numbers.
-    last_good_value : float
-        End of the valid calibration time range.
-
-    Returns
-    -------
-    Any
-        The Mantid detector-pair asymmetry correction.
     """
     c_ws = LoadMuonNexus(Filename=str(calibration_file), OutputWorkspace="a_ws", DetectorGroupingTable="grouping", DeadTimeTable='deadtimes')
     return AlphaCalc(InputWorkspace='a_ws', ForwardSpectra=forward_spectra, BackwardSpectra=backward_spectra, FirstGoodValue=c_ws[3], LastGoodValue=last_good_value)
@@ -495,28 +444,6 @@ def get_alpha(calibration_file: Path, forward_spectra: Sequence[int], backward_s
 def calculate_constant_error_bins(workspace: Any, start_time: float, end_time: float, target_counts: float, forward_spectra: Sequence[int], backward_spectra: Sequence[int], time_zero: float) -> list[float]:
     """
     Build Mantid rebin parameters with approximately constant count errors.
-
-    Parameters
-    ----------
-    workspace : Any
-        Mantid workspace containing detector histograms.
-    start_time : float
-        First time included in the rebinning range.
-    end_time : float
-        Last time included in the rebinning range.
-    target_counts : float
-        Minimum accumulated counts per generated bin.
-    forward_spectra : Sequence[int]
-        Forward detector spectrum numbers.
-    backward_spectra : Sequence[int]
-        Backward detector spectrum numbers.
-    time_zero : float
-        Time-zero offset to subtract from the X data.
-
-    Returns
-    -------
-    list[float]
-        Mantid-compatible ``[start, step, end, ...]`` rebin parameters.
     """
     x_data = workspace.readX(0) - time_zero
     f_idx = [workspace.getIndexFromSpectrumNumber(s) for s in forward_spectra]
@@ -557,20 +484,6 @@ def get_parameters_from_files(
 ) -> list[dict[str, float | int]]:
     """
     Read steering metadata written in processed text-file headers.
-
-    Parameters
-    ----------
-    stsp : tuple[int, int]
-        Inclusive first and last run numbers to read.
-    prenum : str
-        Text prefix before each run number (e.g., 'musr').
-    ext : str
-        File extension, including its leading dot (e.g., '.txt').
-
-    Returns
-    -------
-    list[dict[str, float | int]]
-        One metadata mapping per run, including its integer run number.
     """
     metadata = []
     pattern = re.compile(r"([a-zA-Z][a-zA-Z_]*)=([-+]?\d*\.?\d+(?:[eE][-+]?\d+)?)")
