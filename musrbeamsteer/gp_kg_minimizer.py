@@ -1082,6 +1082,15 @@ def search_minimum(
         # Critical for PCA/global metrics: every old metric is recomputed too.
         update_metrics_and_report()
 
+        # Print current model-predicted minimum coordinate
+        if verbose and len(observations) >= 2:
+            model_min_coord, model_min_value = _estimate_final_minimum(
+                observations,
+                b,
+                random_state=random_state + len(observations),
+            )
+            print(f"     Model minimum at: {np.array2string(model_min_coord, precision=6)}, predicted_metric={model_min_value:.8g}")
+
     # One final global recomputation ensures the returned state is consistent.
     _recompute_all_metrics(observations, extract_metrics)
 
