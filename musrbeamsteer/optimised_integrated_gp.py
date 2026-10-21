@@ -51,7 +51,7 @@ ACCURACY = 0.0001
 INITIAL_REPEATS = 2
 MAX_MEASUREMENTS = 30
 LAST_GOOD_VALUE = 14
-MIN_PC1_SIGNAL_CAPTURE = 0.3
+MIN_PC1_SIGNAL_CAPTURE = 0.1
 
 # ==========================================================================
 # LIVE PLOT
