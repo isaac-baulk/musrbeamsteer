@@ -10,6 +10,7 @@ import os
 import time
 import re
 import shutil
+import abc
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Mapping, Sequence
@@ -373,6 +374,60 @@ class BeamOptimizerState:
         )
         return f_b_counts, params
 
+# ==========================================================================
+# BASE CLASS METRIC FUNCTION
+# ==========================================================================
+
+class BaseMetricExtractor(abc.ABC):
+    """Base class defining the pipeline for all metric extractors."""
+    
+    def __init__(self, state: BeamOptimizerState):
+        self.state = state
+
+    def __call__(self, measurements: Sequence[Mapping[str, Any]], first_set: bool = False) -> list[float]:
+        """The main execution template. Handles all boilerplate."""
+        # 1. Common Configuration & Sync
+        alpha = (
+            get_alpha(
+                self.state.config.alpha_file,
+                self.state.config.spectra_cfg["forward"],
+                self.state.config.spectra_cfg["backward"],
+                self.state.config.last_good_value,
+            )
+            if self.state.config.calculate_alpha else 1
+        )
+        self.state.sync_and_process_batch(measurements, alpha)
+
+        # 2. Common Path Management
+        txt_files = sorted(self.state.output_dir.glob("musr*.txt"))
+        if not txt_files:
+            raise ValueError("No text files found in output directory.")
+            
+        first_run = get_run_from_path(txt_files[0])
+        last_run = get_run_from_path(txt_files[-1])
+
+        self.setup_calc(first_run, last_run, txt_files)
+        # 3. Verification (Only runs on the first set)
+        if first_set:
+            self.verify_statistics(first_run, last_run, txt_files)
+
+        # 4. Calculation
+        return self.calculate_metrics(measurements, txt_files)
+
+    @abc.abstractmethod
+    def verify_statistics(self, first_run: int, last_run: int, txt_files: list[Path]) -> None:
+        """Verify the data has sufficient statistics/contrast. Abort if not."""
+        pass
+
+    @abc.abstractmethod
+    def calculate_metrics(self, measurements: Sequence[Mapping[str, Any]], txt_files: list[Path]) -> list[float]:
+        """Compute and return the final metric array."""
+        pass
+
+    @abc.abstractmethod
+    def setup_calc(self, first_run: int, last_run: int, txt_files: list[Path]) -> None:
+        """Perform any instance-specific setup required before metric calculation."""
+        pass
 
 # ==========================================================================
 # MANTID LOGIC
@@ -532,146 +587,68 @@ def get_parameters_from_files(
         metadata.append(file_metadata)
     return metadata
 
-def integrated_asymmetry(
-    state: BeamOptimizerState,
-    measurements: Sequence[Mapping[str, Any]],
-    firstSet: bool = False
-) -> list[float]:
-    """Return one inverse-variance-weighted asymmetry value per measurement.
 
-    Each processed text file contains one row per time bin with columns
-    ``time, asymmetry, error``.  A time bin with uncertainty ``sigma_i`` is
-    weighted by ``1 / sigma_i**2``::
+class IntegratedAsymmetryExtractor(BaseMetricExtractor):
+    """Extract integrated asymmetry metric from the processed text files."""
+    
+    def setup_calc(self, first_run: int, last_run: int, txt_files: list[Path]) -> None:
+        pass  # No additional setup required for integrated asymmetry
 
-        A_weighted = sum(A_i / sigma_i**2) / sum(1 / sigma_i**2)
+    def verify_statistics(self, first_run: int, last_run: int, txt_files: list[Path]) -> None:
+        pass
 
-    The returned list follows the exact order of ``measurements``, as required
-    by ``search_minimum(..., extract_metrics=...)``.
-    """
+    def calculate_metrics(self, measurements: Sequence[Mapping[str, Any]], txt_files: list[Path]) -> list[float]:
+        metrics = []
+        for file in txt_files:
+            data = np.loadtxt(file, comments="#")
+            data = np.atleast_2d(data)
+            if data.shape[1] < 3:
+                raise ValueError(
+                    f"Expected time, asymmetry, and error columns in {file}."
+                )
 
-    # Process any newly acquired Nexus files into the text files containing
-    # time, asymmetry, and error columns.
-    alpha = (
-        get_alpha(
-            state.config.alpha_file,
-            state.config.spectra_cfg["forward"],
-            state.config.spectra_cfg["backward"],
-            state.config.last_good_value,
-        )
-        if state.config.calculate_alpha
-        else 1
-    )
+            asymmetry = data[:, 1]
+            errors = data[:, 2]
 
-    state.sync_and_process_batch(measurements, alpha)
-
-    # Map run number -> processed text file.  Converting the run number to int
-    # makes this insensitive to leading zeros in either source.
-    txt_files = sorted(state.output_dir.glob("musr*.txt"))
-    if not txt_files:
-        raise ValueError("No text files found in output directory.")
-
-    metrics = []
-
-    for index, measurement in enumerate(measurements):
-        run_number = get_run_from_path(txt_files[index])
-        run_text = str(measurement["run_number"])
-
-        file_path = txt_files[index]
-        if file_path is None:
-            raise ValueError(
-                f"Run {run_text} requested by optimizer but no processed "
+            # Ignore unusable bins rather than allowing NaN/Inf or a zero error bar
+            # to dominate the metric.
+            valid = (
+                np.isfinite(asymmetry)
+                & np.isfinite(errors)
+                & (errors > 0)
             )
+            if not np.any(valid):
+                raise ValueError(
+                    f"Run contains no finite bins with positive errors."
+                )
 
-        data = np.loadtxt(file_path, comments="#")
-        data = np.atleast_2d(data)
-        if data.shape[1] < 3:
-            raise ValueError(
-                f"Expected time, asymmetry, and error columns in {file_path}."
-            )
+            weights = 1.0 / np.square(errors[valid])
+            weighted_asymmetry = np.sum(asymmetry[valid] * weights) / np.sum(weights)
+            metrics.append(float(weighted_asymmetry))
+        return metrics
 
-        asymmetry = data[:, 1]
-        errors = data[:, 2]
 
-        # Ignore unusable bins rather than allowing NaN/Inf or a zero error bar
-        # to dominate the metric.
-        valid = (
-            np.isfinite(asymmetry)
-            & np.isfinite(errors)
-            & (errors > 0)
-        )
-        if not np.any(valid):
-            raise ValueError(
-                f"Run {run_text} contains no finite bins with positive errors."
-            )
-
-        weights = 1.0 / np.square(errors[valid])
-        weighted_asymmetry = np.sum(asymmetry[valid] * weights) / np.sum(weights)
-        metrics.append(float(weighted_asymmetry))
-
-    # implement contrast metric for initial measurements to tell if this is a valid metric
-    return metrics
-   
-def metric_function(
-    state: BeamOptimizerState,
-    measurements: Sequence[Mapping[str, Any]],
-    firstSet: bool = False
-) -> list[float]:
-    """
-    Process all measurements and return one PCA metric per optimizer run.
-
-    Parameters
-    ----------
-    measurements : Sequence[Mapping[str, Any]]
-        Measurement records containing a 'run_number' field.
-
-    Returns
-    -------
-    list[float]
-        One PCA score per measurement, in input order.
-
-    Raises
-    ------
-    ValueError
-        If output data are unavailable or a run is not in PCA output.
-    """
-    alpha = (
-        get_alpha(
-            state.config.alpha_file,
-            state.config.spectra_cfg["forward"],
-            state.config.spectra_cfg["backward"],
-            state.config.last_good_value,
-        )
-        if state.config.calculate_alpha
-        else 1
-    )
+class PCAMetricExtractor(BaseMetricExtractor):
+    """Extract PCA-based metric from the processed text files."""
     
-    state.sync_and_process_batch(measurements, alpha)
+    def setup_calc(self, first_run: int, last_run: int, txt_files: list[Path]) -> None:
+        self.dh = DataHandler()
+        self.dh.load_batch(loc=str(self.state.output_dir) + '/', stsp=(first_run, last_run), prenum="musr00", ext=".txt", skiprows=1)
+        self.dh.prepare_XYE_PCA()
 
-    txt_files = sorted(state.output_dir.glob("musr*.txt"))
-    if not txt_files:
-        raise ValueError("No text files found in output directory.")
-    
-    first_run = get_run_from_path(txt_files[0])
-    last_run = get_run_from_path(txt_files[-1])
+        self.pca_machine = PCAMachine(self.dh)
+        self.pca_machine.perform_pca()
 
-    dh = DataHandler()
-    # on mac the bit after loc needs to be '/', on windows its '\\'
-    dh.load_batch(loc=str(state.output_dir) + '/', stsp=(first_run, last_run), prenum="musr00", ext=".txt", skiprows=1)
-    
-    pvs = get_parameters_from_files(state, (first_run, last_run), "musr", ".txt")
-    
-    dh.prepare_XYE_PCA()
-    pca_machine = PCAMachine(dh)
-    pca_machine.perform_pca()
+        self.pvs = get_parameters_from_files(self.state, (first_run, last_run), "musr", ".txt")
 
-    # if its the set of initial measurements, validate whether PC1 is capturing enough signal
-    if firstSet:
-        pca_machine.print_pca_representation()
+    def verify_statistics(self, first_run: int, last_run: int, txt_files: list[Path]) -> None:     
+        self.pca_machine.print_pca_representation()
 
-        singular_values = np.asarray(pca_machine.pc_sing[0], dtype=float)
+        singular_values = np.asarray(self.pca_machine.pc_sing[0], dtype=float)
         if singular_values.size == 0 or not np.all(np.isfinite(singular_values)):
             raise ValueError("Cannot evaluate PCA signal capture: invalid singular values.")
 
+        #check this logic
         pc1_signal_capture = float(
             np.square(singular_values[0]) / np.sum(np.square(singular_values))
         )
@@ -702,33 +679,34 @@ def metric_function(
                 f"({pc1_signal_capture * 100:.1f}% < {MIN_PC1_SIGNAL_CAPTURE * 100:.1f}%). "
                 f"{recommendation}"
             )
-    
-    pc1_curve = pca_machine.pc_curves[0][:, 0]
-    pc1_errors = np.asarray(dh.prepared_data[0][2], dtype=float)
 
-    valid = np.isfinite(pc1_curve) & np.isfinite(pc1_errors) & (pc1_errors > 0)
-    if not np.any(valid):
-        raise ValueError("Cannot determine the PC1 sign: no finite prepared bins with positive error bars.")
+    def calculate_metrics(self, measurements, txt_files) -> list[float]:
+        pc1_curve = self.pca_machine.pc_curves[0][:, 0]
+        pc1_errors = np.asarray(self.dh.prepared_data[0][2], dtype=float)
 
-    weights = 1.0 / np.square(pc1_errors[valid])
-    weighted_pc1_sum = np.sum(pc1_curve[valid] * weights)
+        valid = np.isfinite(pc1_curve) & np.isfinite(pc1_errors) & (pc1_errors > 0)
+        if not np.any(valid):
+            raise ValueError("Cannot determine the PC1 sign: no finite prepared bins with positive error bars.")
 
-    if weighted_pc1_sum < 0:
-        pca_machine.pc_curves[0][:, 0] *= -1
-        pca_machine.pc_scores[0][0, :] *= -1
+        weights = 1.0 / np.square(pc1_errors[valid])
+        weighted_pc1_sum = np.sum(pc1_curve[valid] * weights)
 
-    pc1_scores = pca_machine.pc_scores[0][0, :].copy()
-    score_map = {str(pv_data["run"]): score for pv_data, score in zip(pvs, pc1_scores)}
-    
-    metrics = []
-    for m in measurements:
-        run_str = str(m["run_number"]).lstrip("0") or "0"
-        if run_str in score_map:
-            metrics.append(score_map[run_str])
-        else:
-            raise ValueError(f"Run {run_str} requested by optimizer but not found in PCA output.")
-            
-    return metrics
+        if weighted_pc1_sum < 0:
+            self.pca_machine.pc_curves[0][:, 0] *= -1
+            self.pca_machine.pc_scores[0][0, :] *= -1
+
+        pc1_scores = self.pca_machine.pc_scores[0][0, :].copy()
+        score_map = {str(pv_data["run"]): score for pv_data, score in zip(self.pvs, pc1_scores)}
+        
+        metrics = []
+        for m in measurements:
+            run_str = str(m["run_number"]).lstrip("0") or "0"
+            if run_str in score_map:
+                metrics.append(score_map[run_str])
+            else:
+                raise ValueError(f"Run {run_str} requested by optimizer but not found in PCA output.")
+                
+        return metrics
 
 
 # ==========================================================================
@@ -1027,11 +1005,20 @@ def main() -> None:
         live_plot = LiveOptimizerPlot(config.bounds, pv_names)
 
     measurement_callback = lambda coordinate: get_measurement(state, coordinate)
+
     # choose metric_function or integrated_asymmetry
-    metric_callback = lambda measurements, firstSet=False: {
-        "Integrated asymmetry": integrated_asymmetry,
-        "PCA score": metric_function
-        }[METRIC_FUNCTION](state, measurements, firstSet)
+    # 1. Map the configuration string to the corresponding class
+    extractor_class = {
+        "Integrated asymmetry": IntegratedAsymmetryExtractor,
+        "PCA score": PCAMetricExtractor
+    }[METRIC_FUNCTION]
+    
+    # 2. Instantiate the chosen class with the state object
+    metric_extractor_instance = extractor_class(state)
+    
+    # 3. Set the callback using the instance
+    # Because we defined __call__ in the base class, the object acts like a function
+    metric_callback = lambda measurements, firstSet=False: metric_extractor_instance(measurements, first_set=firstSet)
 
     progress_callback = lambda observations, noise: show_progress(
         config.scan_pvs,
