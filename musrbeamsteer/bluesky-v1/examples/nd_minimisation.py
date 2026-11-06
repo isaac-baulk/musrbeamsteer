@@ -8,9 +8,9 @@ from ibex_bluesky_core.devices.simpledae import (
     SimpleDae, RunPerPointController, GoodFramesWaiter, PeriodGoodFramesNormalizer,
 )
 from ibex_bluesky_core.utils import get_pv_prefix
-from musrbeamsteer.bluesky_integration import minimize_plan
-from musrbeamsteer.acquisition import make_ibex_dae_acquire
-from musrbeamsteer.metrics import count_rate_metric
+from blueskysteercore.bluesky_integration import minimize_plan
+from blueskysteercore.acquisition import make_ibex_dae_acquire
+from blueskysteercore.metrics import count_rate_metric
 
 
 def make_plan(positioners, bounds, *, frames=500):

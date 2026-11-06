@@ -1,8 +1,9 @@
 # Beam-off MUSR Bluesky steering test: synthetic DAE
 
-The synthetic acquisition backend moves the **real two MUSR steering
-magnets** through Bluesky but obtains the muon data from a Python simulator.
-It does not connect to the DAE, perform a DAE run, or write NeXus files.
+The synthetic acquisition backend obtains the muon data from a Python
+simulator. `USE_SYNTHETIC_MOTORS` independently selects in-memory motors or
+the real two MUSR steering magnets. Synthetic data does not connect to the
+DAE, perform a DAE run, or write NeXus files.
 The live backend still performs **one saved DAE run per point** and obtains
 its histogram directly from the paused DAE, without reading a NeXus file.
 
@@ -13,11 +14,12 @@ PV names or assume the settings in this repository are hardware-safe.
 
 ## Quick start on MUSR
 
-The example [`examples/musr_steering_synthetic.py`](examples/musr_steering_synthetic.py)
+The example [`examples/musr_steering_main.py`](examples/musr_steering_main.py)
 now contains the values supplied for the MUSR steering test:
 
 ```python
-USE_SYNTHETIC = True
+USE_SYNTHETIC_DATA = True
+USE_SYNTHETIC_MOTORS = True
 STEER_1_SETPOINT_PV = "IN:MUSR:KEPCO_04:CURRENT:SP"
 STEER_1_READBACK_PV = "IN:MUSR:KEPCO_04:CURRENT"
 STEER_2_SETPOINT_PV = "IN:MUSR:KEPCO_05:CURRENT:SP"
@@ -43,15 +45,16 @@ MINIMUM_ESTIMATE_POINTS = 1024
 
 **These are operator-provided test settings, not independently validated hardware
 limits.** Confirm both actual readbacks are within `SAFE_BOUNDS` and that the
-full rectangle is approved for the two magnets before executing. Synthetic
-mode never starts the DAE, but still writes real steering setpoints.
+full rectangle is approved for the two magnets before executing. With
+`USE_SYNTHETIC_MOTORS=True`, no steering setpoints are written; with it set to
+`False`, the selected bounds are applied to the real motors.
 
 With the existing `mantid_env` and project installation, from **CMD**:
 
 ```cmd
 cd /d "C:\Users\musr\Documents\Isaac\musr_beamsteer_bluesky"
 set "PATH=%CD%;%PATH%"
-python -c "from bluesky import RunEngine; from examples.musr_steering_synthetic import make_plan; RE = RunEngine({}); RE(make_plan())"
+python -c "from bluesky import RunEngine; from examples.musr_steering_main import make_plan; RE = RunEngine({}); RE(make_plan())"
 ```
 
 `set "PATH=%CD%;%PATH%"` is relevant only when a compatible `caRepeater.exe`

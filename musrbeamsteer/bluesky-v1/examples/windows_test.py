@@ -1,21 +1,25 @@
-"""Windows-friendly MUSR steering entry point with Qt live monitoring.
+"""Windows-friendly MUSR steering entry point.
 
 Run from the repository root::
 
-    python -m examples.run_musr_steering
+    python -m examples.windows_test
 
-This constructs the Matplotlib/Qt monitor on the main thread BEFORE creating
-Bluesky's RunEngine. The RunEngine's default during_task handler can then keep
-Qt responsive while the optimiser and EPICS/DAE plans execute elsewhere.
+This imports the package module correctly when launched with ``-m`` and then
+runs the configured Bluesky plan.
 """
 from __future__ import annotations
 
+from . import musr_steering_main as steering
 import os
-
-import musr_steering_main as steering
 
 
 def main():
+    plan = steering.make_plan()
+    from bluesky import RunEngine
+    re = RunEngine({})
+    return re(plan)
+
+def plot_live_main():
     if steering.PLOT_LIVE:
         # Do not override a custom MPLBACKEND supplied by the operator.
         os.environ.setdefault("MPLBACKEND", "QtAgg")

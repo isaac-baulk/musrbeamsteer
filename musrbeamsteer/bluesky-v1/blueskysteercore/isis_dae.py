@@ -98,7 +98,7 @@ def musr_longitudinal_grouping() -> DetectorGrouping:
     This is not the ARGUS detector mapping and must be confirmed against the
     currently loaded MUSR DAE spectra table before a live experiment.
     """
-    return DetectorGrouping(tuple(range(1, 33)), tuple(range(33, 65)))
+    return DetectorGrouping(tuple(range(33, 65)), tuple(range(1, 33)))
 
 def musr_transverse_grouping() -> DetectorGrouping:
     """

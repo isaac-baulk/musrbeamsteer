@@ -14,6 +14,11 @@ from .isis_dae import (
 )
 
 from .musr_metrics import integrated_asymmetry_metric, pca_asymmetry_metric
-from .synthetic import generate_synthetic_musr_data, static_gaussian_kubo_toyabe, spatial_rate_fraction
+from .synthetic import (
+    SyntheticMotor,
+    generate_synthetic_musr_data,
+    static_gaussian_kubo_toyabe,
+    spatial_rate_fraction,
+)
 from .acquisition import make_synthetic_acquire, make_live_ibex_dae_acquire
 from .positioners import make_setpoint_readback_axis

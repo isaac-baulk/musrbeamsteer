@@ -23,7 +23,7 @@ import numpy as np
 
 from bluesky import RunEngine
 
-from musr_steering_main import make_plan
+from .musr_steering_main import make_plan
 
 
 RE = RunEngine({})

@@ -3,14 +3,9 @@
 See [ISIS_LIVE_DAE.md](ISIS_LIVE_DAE.md) for the new DAE device that snapshots
 live spectra before END/save (rather than post-END reducer processing),
 supports `AcquisitionDuration.good_frames`, `.events` or `.seconds`, and
-uses MUSR's manual detector groups as a configurable default. **The old
-192-spectrum Bluesky example originated on ARGUS, not MUSR.** This removes
-NeXus reading for live scalar metrics but cannot eliminate DAE END/save time.
+uses MUSR's manual detector groups as a configurable default.
 
 # N-dimensional minimisation with Bluesky
-
-New entry point: `musrbeamsteer.bluesky_integration.minimize_plan`.
-The previous `beam_steering_plan` remains an alias for compatibility.
 
 ```python
 from musrbeamsteer.bluesky_integration import minimize_plan
@@ -26,6 +21,30 @@ unique `uid` and a `data` mapping. `make_bluesky_acquire(detectors)` captures
 Bluesky event documents inside the RunEngine, and
 `make_ibex_dae_acquire(dae)` configures the same pattern for an IBEX SimpleDae.
 Both require configured devices and an actual RunEngine.
+
+## Synthetic motors
+
+`SyntheticMotor` defines a named in-memory motor without connecting to EPICS.
+The configured PV names are retained as metadata, while `safe_bounds` are
+enforced before each move:
+
+```python
+from blueskysteercore.synthetic import SyntheticMotor
+
+motor_config = SyntheticMotor(
+    name="MUSR_STEER_1",
+    setpoint_pv="IN:MUSR:KEPCO_04:CURRENT:SP",
+    readback_pv="IN:MUSR:KEPCO_04:CURRENT",
+    safe_bounds=(-0.5, 0.5),
+    initial_value=0.0,
+)
+motor = motor_config.build()
+```
+
+Use the built devices in `minimize_plan`. The MUSR example uses these soft
+motors when `USE_SYNTHETIC_MOTORS=True`; set it to `False` to use the
+EPICS-backed positioners. Independently set `USE_SYNTHETIC_DATA` to choose
+between simulated data and the live MUSR DAE.
 
 ## Gaussian initial designs (beam-off and generic experiments)
 
@@ -78,8 +97,6 @@ other metrics that depend on all acquired points.
 
 - The optimiser's GP/KG calculation is in `gp_kg_minimizer.py` and works for N
   coordinates; performance can become expensive in higher dimensions.
-- The old Genie/Mantid standalone workflows are retained for reference, **not**
-  converted to Bluesky. New experimental paths do not import Genie.
 - The legacy NeXus/Mantid metric adapters still require an instrument-specific
   resolver mapping Bluesky UID to real ISIS run number; **UID != run number**.
 - Check actual IBEX event field names. `examples/nd_minimisation.py` contains

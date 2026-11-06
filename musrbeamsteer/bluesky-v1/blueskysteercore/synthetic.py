@@ -20,6 +20,8 @@ A shared numpy.random.Generator gives reproducible *new* noise at every call.
 from __future__ import annotations
 
 from collections.abc import Sequence
+from dataclasses import dataclass
+import math
 from typing import Any
 
 import numpy as np
@@ -30,6 +32,84 @@ from .isis_dae import AcquisitionDuration, DurationUnit, DetectorGrouping, musr_
 DEFAULT_BIN_WIDTH_NS = 16.0
 DEFAULT_MAX_TIME_US = 32.0
 DEFAULT_N_TIME_BINS = 2000
+
+
+@dataclass(frozen=True)
+class SyntheticMotor:
+    """Configuration for a soft Bluesky motor with setpoint and readback PVs.
+
+    The PV names are metadata only: ``build()`` creates in-memory signals and
+    never connects to EPICS. ``safe_bounds`` are enforced by the device before
+    a setpoint is accepted.
+    """
+
+    name: str
+    setpoint_pv: str
+    readback_pv: str
+    safe_bounds: tuple[float, float]
+    initial_value: float = 0.0
+    readback_tolerance: float = 0.01
+    timeout: float = 30.0
+
+    def __post_init__(self) -> None:
+        lower, upper = self.safe_bounds
+        if not self.name or not self.setpoint_pv or not self.readback_pv:
+            raise ValueError("name and PV names are required")
+        if not math.isfinite(lower) or not math.isfinite(upper) or lower >= upper:
+            raise ValueError("safe_bounds must be finite increasing bounds")
+        if not lower <= self.initial_value <= upper:
+            raise ValueError("initial_value must be within safe_bounds")
+        if not math.isfinite(self.readback_tolerance) or self.readback_tolerance <= 0:
+            raise ValueError("readback_tolerance must be finite and > 0")
+        if not math.isfinite(self.timeout) or self.timeout <= 0:
+            raise ValueError("timeout must be finite and > 0")
+
+    def build(self):
+        """Build an in-memory Ophyd Async device for this motor configuration."""
+        from ophyd_async.core import (
+            AsyncStatus,
+            HintedSignal,
+            StandardReadable,
+            soft_signal_r_and_setter,
+            wait_for_value,
+        )
+
+        configuration = self
+
+        class SoftMotor(StandardReadable):
+            def __init__(self):
+                with self.add_children_as_readables(HintedSignal):
+                    self.readback, self._set_readback = soft_signal_r_and_setter(
+                        float, configuration.initial_value
+                    )
+                self.setpoint, self._set_setpoint = soft_signal_r_and_setter(
+                    float, configuration.initial_value
+                )
+                super().__init__(name=configuration.name)
+
+            @AsyncStatus.wrap
+            async def set(self, value: float) -> None:
+                target = float(value)
+                lower, upper = configuration.safe_bounds
+                if not math.isfinite(target) or not lower <= target <= upper:
+                    raise ValueError(
+                        f"{configuration.name} target {target} outside "
+                        f"safe_bounds {configuration.safe_bounds}"
+                    )
+                self._set_setpoint(target)
+                self._set_readback(target)
+                await wait_for_value(
+                    self.readback,
+                    lambda actual: abs(float(actual) - target)
+                    <= configuration.readback_tolerance,
+                    timeout=configuration.timeout,
+                )
+
+        device = SoftMotor()
+        device.setpoint_pv = configuration.setpoint_pv
+        device.readback_pv = configuration.readback_pv
+        device.safe_bounds = configuration.safe_bounds
+        return device
 
 
 def static_gaussian_kubo_toyabe(time_us: Sequence[float] | np.ndarray, delta_us_inv: float) -> np.ndarray:
