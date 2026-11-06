@@ -130,6 +130,7 @@ def test_config_prompt_and_initial_design_happen_before_any_epics_connection(mon
     monkeypatch.setattr(example, 'VERBOSE', 0)
     monkeypatch.setattr(example, 'USE_SYNTHETIC_DATA', True)
     monkeypatch.setattr(example, 'USE_SYNTHETIC_MOTORS', False)
+    monkeypatch.setattr(example, 'PLOT_LIVE', False)
     calls = []
     fake_module = types.ModuleType('ophyd_async')
     fake_module.__path__ = []

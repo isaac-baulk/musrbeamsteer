@@ -186,8 +186,8 @@ def test_bluesky_plan_calls_monitor_hooks_on_every_measurement(monkeypatch):
     """Even initial-design measurements notify the metric, before first PCA fit."""
     import sys
     import types
-    from musrbeamsteer import bluesky_integration as integ
-    from musrbeamsteer.gp_kg_minimizer import NextCoordinate
+    from ..blueskysteercore import bluesky_integration as integ
+    from ..blueskysteercore.gp_kg_minimizer import NextCoordinate
 
     class Motor:
         def __init__(self, name):

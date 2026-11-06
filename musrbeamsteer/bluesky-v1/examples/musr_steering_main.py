@@ -26,6 +26,7 @@ from blueskysteercore.acquisition import make_live_ibex_dae_acquire, make_synthe
 from blueskysteercore.benchmarking import BenchmarkRecorder, duration_as_dict
 from blueskysteercore.bluesky_integration import minimize_plan
 from blueskysteercore.gp_kg_minimizer import gaussian_initial_coordinates
+from blueskysteercore.live_monitor import live_metric_monitor
 from blueskysteercore.isis_dae import AcquisitionDuration, make_live_dae
 from blueskysteercore.musr_metrics import (
     integrated_asymmetry_metric,
@@ -128,6 +129,17 @@ INITIAL_REPEATS = 2
 # 0: quiet, 1: measurements + best measured, 2: also show GP estimate/diagnostics.
 VERBOSE = 2
 MINIMUM_ESTIMATE_POINTS = 1024  # used only when VERBOSE=2 (no motor moves)
+
+# Live plots: 2D GP-predicted metric + latest forward/backward asymmetry.
+PLOT_LIVE = True
+PLOT_AXES = None  # default (0, 1); e.g. (1, 2) in a 3D+ scan
+PLOT_GRID_SIZE = 65  # 65 x 65 GP posterior-mean colour map
+PLOT_MINIMUM_POINTS = 1024  # full N-D Sobol search for slice centre
+PLOT_ASYMMETRY_REBIN = 8  # 8 x 16 ns -> 128 ns per plotted point
+PLOT_ASYMMETRY_TIME_WINDOW_NS = (0.0, 32000.0)
+# To save a PNG instead of opening a Qt window: set PLOT_LIVE=False and
+# PLOT_IMAGE_PATH=r"C:\Users\musr\Documents\Isaac\musr_monitor.png".
+PLOT_IMAGE_PATH = None
 # ================================================================
 
 
@@ -340,6 +352,27 @@ def make_plan():
         metric = asym_squared_count_rate_metric(**metric_options)
     else:
         raise ValueError("METRIC_NAME must be 'integrated_asymmetry' or 'pca' or 'asym_squared_count_rate'")
+    
+    if PLOT_LIVE or PLOT_IMAGE_PATH is not None:
+        # The decorator preserves the metric interface, including the LRU
+        # cache of the integrated metric and dataset-wide PCA recalculation.
+        metric = live_metric_monitor(
+            bounds=SAFE_BOUNDS,
+            axes=PLOT_AXES,
+            alpha=METRIC_ALPHA,
+            asymmetry_rebin=PLOT_ASYMMETRY_REBIN,
+            asymmetry_time_window_ns=PLOT_ASYMMETRY_TIME_WINDOW_NS,
+            min_bin_counts=MIN_BIN_COUNTS,
+            grid_size=PLOT_GRID_SIZE,
+            minimum_points=PLOT_MINIMUM_POINTS,
+            random_state=RANDOM_SEED,
+            show=PLOT_LIVE,
+            save_path=PLOT_IMAGE_PATH,
+        )(metric)
+        metric.set_axis_labels([name for name, _, _ in pvs])
+        # IMPORTANT: make_plan() is called on the main thread before RE(...).
+        # The Qt window + timer must exist *before* constructing RunEngine.
+        metric.open()    
 
     def plan():
         yield from ensure_connected(*connected_devices, timeout=90)

@@ -85,6 +85,10 @@ def minimize_plan(
         raise ValueError("motors and bounds must have matching nonzero lengths")
     if len({id(m) for m in motors}) != len(motors):
         raise ValueError("motors must be distinct")
+    set_axis_labels = getattr(extract_metrics, "set_axis_labels", None)
+    if callable(set_axis_labels):
+        set_axis_labels([str(getattr(motor, "name", f"Axis {i + 1}"))
+                         for i, motor in enumerate(motors)])
     if accuracy <= 0 or initial_repeats < 2 or max_measurements < 2:
         raise ValueError("accuracy > 0, initial_repeats >= 2 and max_measurements >= 2 required")
     if max_acquisitions is not None:
@@ -143,6 +147,9 @@ def minimize_plan(
         if measurement is None:
             raise ValueError("acquisition plan must return a measurement record")
         observations.append(Observation(coordinate=np.asarray(coordinate, dtype=float).copy(), measurement=measurement))
+        on_measurement = getattr(extract_metrics, "on_measurement", None)
+        if callable(on_measurement):
+            on_measurement(observations)
 
     def recalculate(first_set=False):
         _recompute_all_metrics(observations, extract_metrics, first_set)
@@ -151,6 +158,9 @@ def minimize_plan(
             noise = math.sqrt(estimate_noise_variance(observations))
         except RuntimeError:
             pass
+        on_observations = getattr(extract_metrics, "on_observations", None)
+        if callable(on_observations):
+            on_observations(observations, noise)
         if progress_callback is not None:
             progress_callback(observations, noise)
         if verbose:
@@ -252,6 +262,11 @@ def minimize_plan(
             random_explorations=random_explorations,
             model_fit_ok=model_fit_ok, gp_warnings=tuple(gp_warnings),
         )
+        if result.converged:
+            print(
+                f"Required accuracy reached: optimum found "
+                f"(KG={result.kg:.6g} < accuracy={accuracy:.6g})."
+            )
         if final_position == "model":
             yield from move_to(model_position)
         elif final_position == "best_measured":
