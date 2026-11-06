@@ -119,7 +119,7 @@ N_TIME_BINS = round(MAX_TIME_US * 1000 / BIN_WIDTH_NS)  # 2000 bins, [0, 32 us)
 RANDOM_SEED = 20261023
 
 # Select the live-histogram metric without changing the optimiser/acquisition.
-METRIC_NAME = "asym_diff_count_rate"  # or "pca" or "asym_squared_count_rate" or "asym_diff_count_rate"
+METRIC_NAME = "asym_diff_count_rate"  # or "integrated_asymmetry" or "pca" or "asym_squared_count_rate" or "asym_diff_count_rate"
 METRIC_TIME_WINDOW_NS = (0.0, 30000.0)  # synthetic t0=0; calibrate for live DAE
 METRIC_REBIN = 1  # native 16 ns bins; set 8 for ~128 ns channels
 METRIC_ALPHA = 1.0  # calibrate for real MUSR measurements
