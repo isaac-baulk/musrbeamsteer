@@ -25,7 +25,7 @@ def test_real_musr_example_configuration_matches_operator_values():
     assert example.CURRENT_PRECISIONS == [3, 3]
     assert example.CENTER == [0.1, -0.3]
     assert example.CURVATURE == [3.0, 3.0]
-    assert example.METRIC_NAME == 'integrated_asymmetry'
+    assert example.METRIC_NAME == 'pca'
     assert example.METRIC_TIME_WINDOW_NS == (0., 30000.)
     assert example.METRIC_REBIN == 1
     assert example.MAX_MEASUREMENTS == 50
