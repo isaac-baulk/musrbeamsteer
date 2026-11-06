@@ -29,6 +29,7 @@ from blueskysteercore.gp_kg_minimizer import gaussian_initial_coordinates
 from blueskysteercore.live_monitor import live_metric_monitor
 from blueskysteercore.isis_dae import AcquisitionDuration, make_live_dae
 from blueskysteercore.musr_metrics import (
+    asym_diff_count_rate_metric,
     integrated_asymmetry_metric,
     pca_asymmetry_metric,
     asym_squared_count_rate_metric
@@ -118,10 +119,11 @@ N_TIME_BINS = round(MAX_TIME_US * 1000 / BIN_WIDTH_NS)  # 2000 bins, [0, 32 us)
 RANDOM_SEED = 20261023
 
 # Select the live-histogram metric without changing the optimiser/acquisition.
-METRIC_NAME = "integrated_asymmetry"  # or "pca" or "asym_squared_count_rate"
+METRIC_NAME = "asym_diff_count_rate"  # or "pca" or "asym_squared_count_rate" or "asym_diff_count_rate"
 METRIC_TIME_WINDOW_NS = (0.0, 30000.0)  # synthetic t0=0; calibrate for live DAE
 METRIC_REBIN = 1  # native 16 ns bins; set 8 for ~128 ns channels
 METRIC_ALPHA = 1.0  # calibrate for real MUSR measurements
+BACKGROUND_ASYMMETRY = 0.2  # calibrate for real MUSR measurements
 MIN_BIN_COUNTS = 10.0
 
 MAX_MEASUREMENTS = 50
@@ -337,6 +339,7 @@ def make_plan():
 
     metric_options = dict(
         alpha=METRIC_ALPHA,
+        background_asym=BACKGROUND_ASYMMETRY,
         time_window_ns=METRIC_TIME_WINDOW_NS,
         rebin=METRIC_REBIN,
         min_bin_counts=MIN_BIN_COUNTS,
@@ -350,8 +353,11 @@ def make_plan():
     elif METRIC_NAME == "asym_squared_count_rate":
         # Inverse-variance-weighted integrated asymmetry squared times count rate.
         metric = asym_squared_count_rate_metric(**metric_options)
+    elif METRIC_NAME == "asym_diff_count_rate":
+        # Inverse-variance-weighted integrated asymmetry difference times count rate.
+        metric = asym_diff_count_rate_metric(**metric_options)
     else:
-        raise ValueError("METRIC_NAME must be 'integrated_asymmetry' or 'pca' or 'asym_squared_count_rate'")
+        raise ValueError("METRIC_NAME must be 'integrated_asymmetry' or 'pca' or 'asym_squared_count_rate' or 'asym_diff_count_rate'")
     
     if PLOT_LIVE or PLOT_IMAGE_PATH is not None:
         # The decorator preserves the metric interface, including the LRU

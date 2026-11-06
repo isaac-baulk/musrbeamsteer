@@ -142,7 +142,54 @@ def asym_squared_count_rate_metric(
 
     return IndependentMetric(calculate, maximize=maximize)
 
+def asym_diff_count_rate_metric(
+    *,
+    alpha: float = 1.0,
+    background_asym: None | float = None,
+    time_window_ns: tuple[float, float] = (0.0, 8000.0),
+    rebin: int = 8,
+    min_bin_counts: float = 10.0,
+    maximize: bool = True,
+) -> IndependentMetric:
+    """Inverse-variance-weighted integrated asymmetry difference squared times count rate.
 
+    If `background_asym` is provided, it is used as the initial asymmetry. Otherwise,
+    Initial asymmetry is taken as the first valid time bin in the selected window. This is a
+    proxy for the asymmetry of silver background, which is assumed to be non relaxing.
+
+    This metric is the integrated asymmetry difference squared multiplied by the total
+    counts in the selected time window, divided by the exposure (good frames).
+    It is a proxy for polarisation difference squared times count rate, which is a
+    common figure of merit for muon experiments.
+    """
+    _validate_metric_options(alpha, min_bin_counts)
+
+    def calculate(record: Mapping[str, Any]) -> float:
+        _, asymmetry, sigma, totals = _time_binned_asymmetry(
+            record, alpha=alpha, time_window_ns=time_window_ns, rebin=rebin,
+        )
+        valid = (
+            np.isfinite(asymmetry) & np.isfinite(sigma) & (sigma > 0)
+            & (totals >= min_bin_counts)
+        )
+        if not np.any(valid):
+            raise ValueError('No valid time bins for asymmetry difference squared count rate')
+        weights = 1.0 / np.square(sigma[valid])
+
+        if background_asym is not None:
+            initial_asymmetry = background_asym
+        else:
+            initial_asymmetry = asymmetry[valid][0] #proxy for silver background asymmetry
+
+        integrated_asymmetry = float(np.average(asymmetry[valid], weights=weights))
+        integrated_asymmetry_diff = integrated_asymmetry - initial_asymmetry
+        total_counts = float(totals[valid].sum())
+        exposure = float(_field(record, 'good_frames'))
+        if exposure <= 0:
+            raise ValueError('good_frames must be positive for asymmetry difference squared count rate')
+        return (integrated_asymmetry_diff ** 2) * (total_counts / exposure)
+
+    return IndependentMetric(calculate, maximize=maximize)
 def pca_asymmetry_metric(
     *,
     alpha: float = 1.0,

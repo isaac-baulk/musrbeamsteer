@@ -1,5 +1,7 @@
 ## MuSR Beam Steering
 
+![image](resources/GM-steer.png)
+
 Program to automatically steer beam onto sample in MuSR. Uses Mantid for data reduction and processing, a choice of 'metric functions' to quantify goodness of steering,
 and a Generic Gaussian-Process + approximate Knowledge-Gradient Bayesian optimisation process to choose the next set of currents for steering magnets. 
 This code has capabilities to be generalised to a wide range of settings where various PVs must be scanned over and a certain metric should be minimised.
