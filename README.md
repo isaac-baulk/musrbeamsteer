@@ -19,7 +19,7 @@ Other dependencies:
 - scipy
 - scikit-learn
 
-To run code, naviagte into ```musrbeamsteer``` and execute ```optimised_integrated_gp.py```. Change settings as required under USER CONFIGURATION.
+To run genie_python/mantid powered optimiser, from repo root execute "python -m musrbeamsteer.genie-mantid.optimised_integrated_gp"
 
 ## Docs
 
