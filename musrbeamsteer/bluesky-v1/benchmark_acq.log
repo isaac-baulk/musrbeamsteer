@@ -1,0 +1,30 @@
+{"timestamp": 1794219224.2974632, "event": "configuration", "period_per_point": true, "steering_pvs": {"steer_1_setpoint": "IN:MUSR:KEPCO_04:CURRENT:SP", "steer_1_readback": "IN:MUSR:KEPCO_04:CURRENT", "steer_2_setpoint": "IN:MUSR:KEPCO_05:CURRENT:SP", "steer_2_readback": "IN:MUSR:KEPCO_05:CURRENT"}, "instrument": "MUSR_LONGITUDINAL", "use_synthetic_data": true, "use_synthetic_motors": true, "synthetic": {"center": [0.1, -0.3], "curvature": [3.0, 3.0], "kt_delta_us_inv": 0.75, "initial_asymmetry": 0.23, "muon_lifetime_us": 2.1969811, "counts_per_good_frame": 1000.0, "edge_rate_fraction": 0.1, "good_frames_per_second": 50.0, "bin_width_ns": 16.0, "max_time_us": 32.0, "n_time_bins": 2000, "random_seed": 20261023}, "settle_seconds": 1.0, "duration": {"unit": "DurationUnit.EVENTS", "value": 1000000}, "metric": {"name": "pca", "time_window_ns": [0.0, 30000.0], "rebin": 1, "alpha": 1.0, "min_bin_counts": 10.0}, "max_measurements": 50, "initial_repeats": 2}
+{"timestamp": 1794219226.3414035, "event": "timing", "name": "epics_move", "seconds": 0.0}
+{"timestamp": 1794219227.3760207, "event": "timing", "name": "epics_move", "seconds": 0.015999999945051968}
+{"timestamp": 1794219228.3926115, "event": "timing", "name": "epics_move", "seconds": 0.0}
+{"timestamp": 1794219229.4092102, "event": "timing", "name": "epics_move", "seconds": 0.0}
+{"timestamp": 1794219230.4449482, "event": "timing", "name": "epics_move", "seconds": 0.0}
+{"timestamp": 1794219231.4760394, "event": "timing", "name": "epics_move", "seconds": 0.0}
+{"timestamp": 1794219232.6778867, "event": "timing", "name": "epics_move", "seconds": 0.0}
+{"timestamp": 1794219234.342897, "event": "timing", "name": "epics_move", "seconds": 0.015000000013969839}
+{"timestamp": 1794219236.0325236, "event": "timing", "name": "epics_move", "seconds": 0.0}
+{"timestamp": 1794219237.6288128, "event": "timing", "name": "epics_move", "seconds": 0.0}
+{"timestamp": 1794219239.294875, "event": "timing", "name": "epics_move", "seconds": 0.0}
+{"timestamp": 1794219241.2104523, "event": "timing", "name": "epics_move", "seconds": 0.0}
+{"timestamp": 1794219242.79275, "event": "timing", "name": "epics_move", "seconds": 0.0}
+{"timestamp": 1794219244.5044682, "event": "timing", "name": "epics_move", "seconds": 0.0}
+{"timestamp": 1794219246.1573238, "event": "timing", "name": "epics_move", "seconds": 0.0}
+{"timestamp": 1794219247.854599, "event": "timing", "name": "epics_move", "seconds": 0.0}
+{"timestamp": 1794219249.5413945, "event": "timing", "name": "epics_move", "seconds": 0.0}
+{"timestamp": 1794219251.2250342, "event": "timing", "name": "epics_move", "seconds": 0.0}
+{"timestamp": 1794219252.825867, "event": "timing", "name": "epics_move", "seconds": 0.0}
+{"timestamp": 1794219254.7615216, "event": "timing", "name": "epics_move", "seconds": 0.0}
+{"timestamp": 1794219256.7211723, "event": "timing", "name": "epics_move", "seconds": 0.015000000013969839}
+{"timestamp": 1794219258.3911462, "event": "timing", "name": "epics_move", "seconds": 0.0}
+{"timestamp": 1794219260.428011, "event": "timing", "name": "epics_move", "seconds": 0.0}
+{"timestamp": 1794219262.482317, "event": "timing", "name": "epics_move", "seconds": 0.0}
+{"timestamp": 1794219264.3450806, "event": "timing", "name": "epics_move", "seconds": 0.0}
+{"timestamp": 1794219266.0072033, "event": "timing", "name": "epics_move", "seconds": 0.0}
+{"timestamp": 1794219267.6927564, "event": "timing", "name": "epics_move", "seconds": 0.0}
+{"timestamp": 1794219269.4739988, "event": "timing", "name": "epics_move", "seconds": 0.0}
+{"timestamp": 1794219270.4874108, "event": "timing_summary", "timings": {"epics_move": {"count": 28, "median_seconds": 0.0, "min_seconds": 0.0, "max_seconds": 0.015999999945051968}}}

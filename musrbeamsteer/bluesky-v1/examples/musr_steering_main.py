@@ -18,8 +18,7 @@ from __future__ import annotations
 from functools import partial
 import ast
 import re
-from time import perf_counter
-
+import pandas as pd
 import numpy as np
 
 from blueskysteercore.acquisition import make_live_ibex_dae_acquire, make_synthetic_acquire
@@ -48,50 +47,39 @@ benchmark_acq = False  # Enable DAE timing and configuration logging.
 
 INSTRUMENT = "MUSR_LONGITUDINAL" #other options: MUSR_TRANSVERSE, EMU, HIFI
 
-# MUSR steering magnet EPICS PVs (Channel Access by default).
-STEER_1_SETPOINT_PV = "IN:MUSR:KEPCO_04:CURRENT:SP"
-STEER_1_READBACK_PV = "IN:MUSR:KEPCO_04:CURRENT"
-STEER_2_SETPOINT_PV = "IN:MUSR:KEPCO_05:CURRENT:SP"
-STEER_2_READBACK_PV = "IN:MUSR:KEPCO_05:CURRENT"
-#QUADRAPOLAR_PVs are from MUONFE
-# UQ13B_VOLT, UQ13B_POWER, UQ13B_CURR and same for 14B theres also M_SILTS
-FOCUS_1_SETPOINT_PV = "IN:MUONFE:GENESYS_03:1:CURR:SP"
-FOCUS_1_READBACK_PV = "IN:MUONFE:GENESYS_03:1:CURR"
-FOCUS_2_SETPOINT_PV = "IN:MUONFE:GENESYS_03:2:CURR:SP"
-FOCUS_2_READBACK_PV = "IN:MUONFE:GENESYS_03:2:CURR"
-
-
-# Approved test bounds in the magnets' readback units (normally amperes).
-# Review these values locally before enabling real magnet movement.
-SAFE_BOUNDS = ((-0.5, 0.5), (-1.5, 1.5))
-READBACK_TOLERANCES = (0.01, 0.01)
-MOVE_TIMEOUT_SECONDS = 30.0
-SETTLE_SECONDS = 1.0
-MINIMUM_STEP_SIZES = None  # optionally set one minimum increment per magnet
-CURRENT_PRECISIONS = [3, 3]  # decimal places per magnet
-
-SYNTHETIC_MOTORS = (
-    SyntheticMotor(
-        name="MUSR_STEER_1",
-        setpoint_pv=STEER_1_SETPOINT_PV,
-        readback_pv=STEER_1_READBACK_PV,
-        safe_bounds=SAFE_BOUNDS[0],
-        readback_tolerance=READBACK_TOLERANCES[0],
-        timeout=MOVE_TIMEOUT_SECONDS,
-    ),
-    SyntheticMotor(
-        name="MUSR_STEER_2",
-        setpoint_pv=STEER_2_SETPOINT_PV,
-        readback_pv=STEER_2_READBACK_PV,
-        safe_bounds=SAFE_BOUNDS[1],
-        readback_tolerance=READBACK_TOLERANCES[1],
-        timeout=MOVE_TIMEOUT_SECONDS,
-    ),
+PV_DF = pd.DataFrame(
+    columns=["name", "type", "setpoint_pv", "readback_pv", "tolerance", "initial_guess", "safe_bounds", "settle_seconds", "minimum_step_size", "precision", "metric"],
+    data=[
+        ["musr_steering_1", "steering", "IN:MUSR:KEPCO_04:CURRENT:SP", "IN:MUSR:KEPCO_04:CURRENT", 0.01, 0.0, (-0.5, 0.5), 1.0, 0.01, 3, "integrated_asymmetry"],
+        ["musr_steering_2", "steering", "IN:MUSR:KEPCO_05:CURRENT:SP", "IN:MUSR:KEPCO_05:CURRENT", 0.01, 0.0,(-1.5, 1.5), 1.0, 0.01, 3, "integrated_asymmetry"],
+        ["musr_focusing_1", "focusing", "IN:MUONFE:GENESYS_03:1:CURR:SP", "IN:MUONFE:GENESYS_03:1:CURR", 0.01, 0.0, (-2.0, 2.0), 1.0, 0.01, 3, "asym_diff_count_rate"],
+        ["musr_focusing_2", "focusing", "IN:MUONFE:GENESYS_03:2:CURR:SP", "IN:MUONFE:GENESYS_03:2:CURR", 0.01, 0.0, (-2.0, 2.0), 1.0, 0.01, 3, "asym_diff_count_rate"],
+        ["musr_slits", "collimation", "", "", 0.01, 60.0, (0.0, 120.0), 1.0, 1.0, 3, "asym_diff_count_rate"],
+    ]
 )
 
-# Ask for INITIAL_GUESS at startup. Set e.g. [0.0, -0.2] to skip the prompt.
-INITIAL_GUESS = [0, 0]  # prompt: [p1, ..., pN]
-INITIAL_DESIGN_POINTS = None  # default: 1 + 2*N Gaussian points
+# Ordered optimisation stages. Repeated groups are intentional.
+STEER_ORDER_ACCURACIES = (
+    ("steering", 0.1),
+    ("focusing", 0.001),
+    ("steering", 0.001),
+    ("collimation", 0.001),
+)
+
+MOVE_TIMEOUT_SECONDS = 30.0
+
+SYNTHETIC_MOTORS = tuple(
+    SyntheticMotor(
+        name=row["name"],
+        setpoint_pv=row["setpoint_pv"],
+        readback_pv=row["readback_pv"],
+        safe_bounds=row["safe_bounds"],
+        readback_tolerance=row["tolerance"],
+        timeout=MOVE_TIMEOUT_SECONDS,
+    )
+    for _, row in PV_DF.iterrows()
+)
+
 INITIAL_EDGE_MARGIN_FRACTION = 0.10  # keep initial points 10% from each edge
 # Each dimension is sampled with sigma=distance to the nearest bound / 3.
 # Initial draws are rejected, not clipped, when outside the interior margin.
@@ -103,8 +91,8 @@ DURATION = AcquisitionDuration.events(1_000_000)
 
 # N-dimensional simulated sample centre / Gaussian spatial curvature.
 # These describe the synthetic beam, NOT the user's initial guess.
-CENTER = [0.1, -0.3]
-CURVATURE = [3.0, 3.0]  # inverse-square of current units
+CENTER = [0.1, -0.3, 0.0, 0.0, 60.0]
+CURVATURE = [3.0, 3.0, 1.0, 1.0, 0.001]  # inverse-square of PV units
 
 # Static zero-field Gaussian Kubo--Toyabe parameters.
 KT_DELTA_US_INV = 0.75       # KT width Delta in microseconds^-1
@@ -119,7 +107,6 @@ N_TIME_BINS = round(MAX_TIME_US * 1000 / BIN_WIDTH_NS)  # 2000 bins, [0, 32 us)
 RANDOM_SEED = 20261023
 
 # Select the live-histogram metric without changing the optimiser/acquisition.
-METRIC_NAME = "pca"  # or "integrated_asymmetry" or "pca" or "asym_squared_count_rate" or "asym_diff_count_rate"
 METRIC_TIME_WINDOW_NS = (0.0, 30000.0)  # synthetic t0=0; calibrate for live DAE
 METRIC_REBIN = 1  # native 16 ns bins; set 8 for ~128 ns channels
 METRIC_ALPHA = 1.0  # calibrate for real MUSR measurements
@@ -133,7 +120,7 @@ VERBOSE = 2
 MINIMUM_ESTIMATE_POINTS = 1024  # used only when VERBOSE=2 (no motor moves)
 
 # Live plots: 2D GP-predicted metric + latest forward/backward asymmetry.
-PLOT_LIVE = True
+PLOT_LIVE = False
 PLOT_AXES = None  # default (0, 1); e.g. (1, 2) in a 3D+ scan
 PLOT_GRID_SIZE = 65  # 65 x 65 GP posterior-mean colour map
 PLOT_MINIMUM_POINTS = 1024  # full N-D Sobol search for slice centre
@@ -145,72 +132,72 @@ PLOT_IMAGE_PATH = None
 # ================================================================
 
 
-
-def _parse_initial_guess(value: str, n_dimensions: int) -> list[float]:
-    """Parse '[p1, ..., pN]', 'p1,p2' or 'p1 p2' from Windows CMD."""
-    raw = value.strip()
-    if raw.startswith("[") or raw.startswith("("):
-        guess = ast.literal_eval(raw)
-    else:
-        guess = [part for part in re.split(r"[,\s]+", raw) if part]
-    if not isinstance(guess, (tuple, list)) or len(guess) != n_dimensions:
-        raise ValueError(f"Enter exactly {n_dimensions} coordinates")
-    try:
-        return [float(v) for v in guess]
-    except (ValueError, TypeError) as exc:
-        raise ValueError("Every initial-guess coordinate must be numeric") from exc
-
-
-def resolve_initial_guess(*, input_fn=None) -> list[float]:
-    """Ask once per execution, validate before connecting to any hardware.
-
-    Set INITIAL_GUESS to a list to disable prompting in unattended runs.
-    A rejected guess is re-requested; Ctrl+C / EOF aborts without moving.
-    """
-    prompt = input if input_fn is None else input_fn
-    n_dimensions = len(SAFE_BOUNDS)
-    while True:
-        if INITIAL_GUESS is None:
-            message = (
-                f"Initial guess for {n_dimensions} steering currents "
-                f"within {SAFE_BOUNDS}, e.g. [0.0, -0.2]: "
-            )
-            raw = prompt(message)
-            try:
-                guess = _parse_initial_guess(raw, n_dimensions)
-            except (ValueError, SyntaxError) as exc:
-                print(f"Invalid initial guess: {exc}")
-                continue
-        else:
-            guess = list(INITIAL_GUESS)
-
-        try:
-            # Validate even when no prompt is used. Does not access EPICS.
-            gaussian_initial_coordinates(
-                SAFE_BOUNDS, guess, n_points=1,
-                edge_margin_fraction=INITIAL_EDGE_MARGIN_FRACTION,
-                precisions=CURRENT_PRECISIONS, random_state=RANDOM_SEED,
-            )
-        except (TypeError, ValueError) as exc:
-            if INITIAL_GUESS is not None:
-                raise ValueError(f"Configured INITIAL_GUESS is invalid: {exc}") from exc
-            print(f"Initial guess rejected: {exc}")
-            continue
-        return guess
-
-
 def make_simulator():
-    """Create a simulator using the current top-level constants.
+    """Create the full-dimensional synthetic acquisition simulator."""
+    return _full_simulator()
 
-    functools.partial freezes these parameters per optimisation run; one RNG
-    instance generates fresh Poisson noise at repeats. Editing the constants
-    above is all that is required to reconfigure the synthetic experiment.
-    """
+
+def _metric_for_group(metric_name: str):
+    options = dict(
+        alpha=METRIC_ALPHA,
+        time_window_ns=METRIC_TIME_WINDOW_NS,
+        rebin=METRIC_REBIN,
+        min_bin_counts=MIN_BIN_COUNTS,
+    )
+    if metric_name == "integrated_asymmetry":
+        return integrated_asymmetry_metric(**options)
+    if metric_name == "pca":
+        return pca_asymmetry_metric(**options)
+    if metric_name == "asym_squared_count_rate":
+        return asym_squared_count_rate_metric(**options)
+    if metric_name == "asym_diff_count_rate":
+        return asym_diff_count_rate_metric(
+            **options, background_asym=BACKGROUND_ASYMMETRY
+        )
+    raise ValueError(f"Unsupported metric {metric_name!r}")
+
+
+def _validate_pv_configuration() -> None:
+    required = {
+        "name", "type", "setpoint_pv", "readback_pv", "tolerance",
+        "initial_guess", "safe_bounds", "settle_seconds",
+        "minimum_step_size", "precision", "metric",
+    }
+    if set(PV_DF.columns) != required:
+        raise ValueError(f"PV_DF columns must be exactly {sorted(required)}")
+    if PV_DF.empty or PV_DF["name"].duplicated().any():
+        raise ValueError("PV_DF must contain unique motor names")
+    if not USE_SYNTHETIC_MOTORS and (
+        PV_DF["setpoint_pv"].eq("").any() or PV_DF["readback_pv"].eq("").any()
+    ):
+        raise ValueError("Live mode requires setpoint and readback PVs for every PV_DF row")
+    for _, row in PV_DF.iterrows():
+        try:
+            lower, upper = (float(value) for value in row.safe_bounds)
+        except (TypeError, ValueError):
+            raise ValueError(f"Invalid safe_bounds for {row.name!r}") from None
+        if not np.isfinite(lower) or not np.isfinite(upper) or lower >= upper:
+            raise ValueError(f"Invalid safe_bounds for {row.name!r}")
+        if not lower <= row.initial_guess <= upper:
+            raise ValueError(f"initial_guess outside safe_bounds for {row.name!r}")
+        if row.settle_seconds < 0 or row.tolerance <= 0:
+            raise ValueError(f"Invalid timing/tolerance for {row.name!r}")
+        if not isinstance(row.precision, (int, np.integer)) or row.precision < 0:
+            raise ValueError(f"Invalid precision for {row.name!r}")
+    known_groups = set(PV_DF["type"])
+    for group, accuracy in STEER_ORDER_ACCURACIES:
+        if group not in known_groups:
+            raise ValueError(f"Optimisation group {group!r} has no PV_DF rows")
+        if not np.isfinite(accuracy) or accuracy <= 0:
+            raise ValueError(f"Invalid accuracy for {group!r}")
+
+
+def _full_simulator():
     return partial(
         generate_synthetic_musr_data,
         center=CENTER,
         curvature=CURVATURE,
-        bounds=SAFE_BOUNDS,
+        bounds=[tuple(value) for value in PV_DF["safe_bounds"]],
         delta_us_inv=KT_DELTA_US_INV,
         initial_asymmetry=INITIAL_ASYMMETRY,
         duration=DURATION,
@@ -223,110 +210,47 @@ def make_simulator():
         rng=np.random.default_rng(RANDOM_SEED),
     )
 
+
 def make_plan():
-    """Return a Bluesky plan; no EPICS writes until the RunEngine runs it."""
-    pvs = (
-        ("musr_steering_1", STEER_1_SETPOINT_PV, STEER_1_READBACK_PV),
-        ("musr_steering_2", STEER_2_SETPOINT_PV, STEER_2_READBACK_PV),
-    )
-    if any("REPLACE_WITH" in pv for _, sp, rb in pvs for pv in (sp, rb)):
-        raise ValueError("Set the actual steering magnet setpoint/readback PVs")
-    if any(lo is None or hi is None for lo, hi in SAFE_BOUNDS):
-        raise ValueError("Set SAFE_BOUNDS for both magnets before enabling any movement")
-    if any(tol is None for tol in READBACK_TOLERANCES):
-        raise ValueError("Set READBACK_TOLERANCES for both magnets")
-    if len(SAFE_BOUNDS) != len(CENTER) or len(CENTER) != len(CURVATURE):
-        raise ValueError("SAFE_BOUNDS, CENTER and CURVATURE must have the same dimension")
-    if any(not lo < c < hi for (lo, hi), c in zip(SAFE_BOUNDS, CENTER)):
-        raise ValueError("Set CENTER strictly inside both safe current bounds")
-    if not np.isclose(N_TIME_BINS * BIN_WIDTH_NS, MAX_TIME_US * 1000):
-        raise ValueError("Time range must be an integer number of histogram bins")
-
-    # Prompt and generate all initial samples BEFORE any EPICS connection/write.
-    initial_guess = resolve_initial_guess()
-    initial_points = gaussian_initial_coordinates(
-        SAFE_BOUNDS, initial_guess,
-        n_points=INITIAL_DESIGN_POINTS,
-        edge_margin_fraction=INITIAL_EDGE_MARGIN_FRACTION,
-        precisions=CURRENT_PRECISIONS,
-        random_state=RANDOM_SEED,
-    )
-    if VERBOSE:
-        nearest = np.minimum(
-            np.asarray(initial_guess) - np.asarray(SAFE_BOUNDS)[:, 0],
-            np.asarray(SAFE_BOUNDS)[:, 1] - np.asarray(initial_guess),
-        )
-        print(f"Initial guess: {initial_guess}")
-        print(f"Initial Gaussian sigma (nearest edge / 3): {(nearest / 3).tolist()}")
-        print(f"Initial interior samples ({len(initial_points)}):")
-        for index, x in enumerate(initial_points, start=1):
-            print(f"  {index:2d}: {np.array2string(x, precision=6)}")
-
+    """Return sequential optimisation plans for the configured PV groups."""
+    _validate_pv_configuration()
     from ophyd_async.plan_stubs import ensure_connected
     import bluesky.plan_stubs as bps
 
+    rows = list(PV_DF.itertuples(index=False))
     if USE_SYNTHETIC_MOTORS:
-        motors = [motor.build() for motor in SYNTHETIC_MOTORS]
+        motors = [
+            SyntheticMotor(
+                name=row.name,
+                setpoint_pv=row.setpoint_pv,
+                readback_pv=row.readback_pv,
+                safe_bounds=tuple(row.safe_bounds),
+                initial_value=float(row.initial_guess),
+                readback_tolerance=float(row.tolerance),
+                timeout=MOVE_TIMEOUT_SECONDS,
+            ).build()
+            for row in rows
+        ]
     else:
+        if any(not row.setpoint_pv or not row.readback_pv for row in rows):
+            raise ValueError("Live mode requires setpoint and readback PVs for every PV_DF row")
         motors = [
             make_setpoint_readback_axis(
-                name=name, setpoint_pv=sp, readback_pv=rb,
-                tolerance=tol, timeout=MOVE_TIMEOUT_SECONDS, limits=bounds,
+                name=row.name,
+                setpoint_pv=row.setpoint_pv,
+                readback_pv=row.readback_pv,
+                tolerance=float(row.tolerance),
+                timeout=MOVE_TIMEOUT_SECONDS,
+                limits=tuple(row.safe_bounds),
             )
-            for (name, sp, rb), tol, bounds in zip(pvs, READBACK_TOLERANCES, SAFE_BOUNDS)
+            for row in rows
         ]
 
     recorder = BenchmarkRecorder() if benchmark_acq else None
-    if recorder is not None:
-        recorder.log(
-            "configuration",
-            period_per_point=PERIOD_PER_POINT,
-            steering_pvs={
-                "steer_1_setpoint": STEER_1_SETPOINT_PV,
-                "steer_1_readback": STEER_1_READBACK_PV,
-                "steer_2_setpoint": STEER_2_SETPOINT_PV,
-                "steer_2_readback": STEER_2_READBACK_PV,
-            },
-            instrument=INSTRUMENT,
-            use_synthetic_data=USE_SYNTHETIC_DATA,
-            use_synthetic_motors=USE_SYNTHETIC_MOTORS,
-            synthetic={
-                "center": CENTER,
-                "curvature": CURVATURE,
-                "kt_delta_us_inv": KT_DELTA_US_INV,
-                "initial_asymmetry": INITIAL_ASYMMETRY,
-                "muon_lifetime_us": MUON_LIFETIME_US,
-                "counts_per_good_frame": COUNTS_PER_GOOD_FRAME,
-                "edge_rate_fraction": EDGE_RATE_FRACTION,
-                "good_frames_per_second": GOOD_FRAMES_PER_SECOND,
-                "bin_width_ns": BIN_WIDTH_NS,
-                "max_time_us": MAX_TIME_US,
-                "n_time_bins": N_TIME_BINS,
-                "random_seed": RANDOM_SEED,
-            } if USE_SYNTHETIC_DATA else None,
-            settle_seconds=SETTLE_SECONDS,
-            duration=duration_as_dict(DURATION),
-            metric={
-                "name": METRIC_NAME,
-                "time_window_ns": METRIC_TIME_WINDOW_NS,
-                "rebin": METRIC_REBIN,
-                "alpha": METRIC_ALPHA,
-                "min_bin_counts": MIN_BIN_COUNTS,
-            },
-            max_measurements=MAX_MEASUREMENTS,
-            initial_repeats=INITIAL_REPEATS,
-        )
-
     if USE_SYNTHETIC_DATA:
-        acquire = make_synthetic_acquire(make_simulator())
-        connected_devices = motors
+        acquire_full = make_synthetic_acquire(_full_simulator())
+        dae = None
     else:
-        if PERIOD_PER_POINT:
-            if MAX_MEASUREMENTS > MAX_PERIODS:
-                raise ValueError(
-                    f"MAX_MEASUREMENTS ({MAX_MEASUREMENTS}) exceeds the shared DAE "
-                    f"period limit ({MAX_PERIODS})"
-                )
         dae = make_live_dae(
             duration=DURATION,
             instrument=INSTRUMENT,
@@ -334,102 +258,114 @@ def make_plan():
             read_time_axis=True,
             benchmark_recorder=recorder,
         )
-        acquire = make_live_ibex_dae_acquire(dae, shared_run=PERIOD_PER_POINT)
-        connected_devices = [*motors, dae]
-
-    metric_options = dict(
-        alpha=METRIC_ALPHA,
-        time_window_ns=METRIC_TIME_WINDOW_NS,
-        rebin=METRIC_REBIN,
-        min_bin_counts=MIN_BIN_COUNTS,
-    )
-    if METRIC_NAME == "integrated_asymmetry":
-        # Original project's weighted asymmetry metric: smaller at the KT centre.
-        metric = integrated_asymmetry_metric(**metric_options)
-    elif METRIC_NAME == "pca":
-        # Dataset-dependent: recompute ALL PC1 scores when new data arrive.
-        metric = pca_asymmetry_metric(**metric_options)
-    elif METRIC_NAME == "asym_squared_count_rate":
-        # Inverse-variance-weighted integrated asymmetry squared times count rate.
-        metric = asym_squared_count_rate_metric(**metric_options)
-    elif METRIC_NAME == "asym_diff_count_rate":
-        # Inverse-variance-weighted integrated asymmetry difference times count rate.
-        metric = asym_diff_count_rate_metric(
-            **metric_options,
-            background_asym=BACKGROUND_ASYMMETRY,
+        acquire_full = make_live_ibex_dae_acquire(
+            dae, shared_run=PERIOD_PER_POINT
         )
-    else:
-        raise ValueError("METRIC_NAME must be 'integrated_asymmetry' or 'pca' or 'asym_squared_count_rate' or 'asym_diff_count_rate'")
-    
-    if PLOT_LIVE or PLOT_IMAGE_PATH is not None:
-        # The decorator preserves the metric interface, including the LRU
-        # cache of the integrated metric and dataset-wide PCA recalculation.
-        metric = live_metric_monitor(
-            bounds=SAFE_BOUNDS,
-            axes=PLOT_AXES,
-            alpha=METRIC_ALPHA,
-            asymmetry_rebin=PLOT_ASYMMETRY_REBIN,
-            asymmetry_time_window_ns=PLOT_ASYMMETRY_TIME_WINDOW_NS,
-            min_bin_counts=MIN_BIN_COUNTS,
-            grid_size=PLOT_GRID_SIZE,
-            minimum_points=PLOT_MINIMUM_POINTS,
-            random_state=RANDOM_SEED,
-            show=PLOT_LIVE,
-            save_path=PLOT_IMAGE_PATH,
-        )(metric)
-        metric.set_axis_labels([name for name, _, _ in pvs])
-        # IMPORTANT: make_plan() is called on the main thread before RE(...).
-        # The Qt window + timer must exist *before* constructing RunEngine.
-        metric.open()    
+
+    stages = []
+    for stage_number, (group, accuracy) in enumerate(STEER_ORDER_ACCURACIES):
+        group_rows = [row for row in rows if row.type == group]
+        indices = [index for index, row in enumerate(rows) if row.type == group]
+        metrics = {row.metric for row in group_rows}
+        if len(metrics) != 1:
+            raise ValueError(f"All {group!r} PVs must use the same metric")
+        bounds = [tuple(row.safe_bounds) for row in group_rows]
+        metric = _metric_for_group(metrics.pop())
+        if PLOT_LIVE or PLOT_IMAGE_PATH is not None:
+            metric = live_metric_monitor(
+                bounds=bounds,
+                axes=PLOT_AXES,
+                alpha=METRIC_ALPHA,
+                asymmetry_rebin=PLOT_ASYMMETRY_REBIN,
+                asymmetry_time_window_ns=PLOT_ASYMMETRY_TIME_WINDOW_NS,
+                min_bin_counts=MIN_BIN_COUNTS,
+                grid_size=PLOT_GRID_SIZE,
+                minimum_points=PLOT_MINIMUM_POINTS,
+                random_state=RANDOM_SEED + stage_number,
+                show=PLOT_LIVE,
+                save_path=PLOT_IMAGE_PATH,
+            )(metric)
+            metric.set_axis_labels([row.name for row in group_rows])
+            metric.open()
+        stages.append((
+            stage_number, group, accuracy, indices, bounds, metric,
+            [row.minimum_step_size for row in group_rows],
+            [row.precision for row in group_rows],
+            max(row.settle_seconds for row in group_rows),
+        ))
+
+    connected_devices = [*motors] + ([] if dae is None else [dae])
 
     def plan():
         yield from ensure_connected(*connected_devices, timeout=90)
-        if PERIOD_PER_POINT and not USE_SYNTHETIC_DATA:
+        if dae is not None and PERIOD_PER_POINT:
             yield from bps.stage(dae)
+        full_position = np.empty(len(motors), dtype=float)
+        for index, motor in enumerate(motors):
+            full_position[index] = float((yield from bps.rd(motor)))
+        total_measurements = 0
         try:
-            return (yield from minimize_plan(
-                motors=motors,
-                bounds=SAFE_BOUNDS,
-                acquire=acquire,
-                extract_metrics=metric,
-                initial_coordinates=initial_points,
-                initial_repeats=INITIAL_REPEATS,
-                max_measurements=MAX_MEASUREMENTS,
-                max_acquisitions=(
-                    MAX_PERIODS
-                    if PERIOD_PER_POINT and not USE_SYNTHETIC_DATA
-                    else None
-                ),
-                minimum_step_sizes=MINIMUM_STEP_SIZES,
-                precisions=CURRENT_PRECISIONS,
-                settle_seconds=SETTLE_SECONDS,
-                final_position="best_measured",
-                random_state=RANDOM_SEED,
-                verbose=VERBOSE,
-                minimum_estimate_points=MINIMUM_ESTIMATE_POINTS,
-                benchmark_recorder=recorder,
-            ))
-        finally:
-            if PERIOD_PER_POINT and not USE_SYNTHETIC_DATA:
-                save_started = perf_counter()
-                yield from bps.unstage(dae)
-                if recorder is not None:
-                    recorder.record("dae_end_save", perf_counter() - save_started)
-            if recorder is not None:
-                recorder.log_summary(
-                    print_run_per_point=(
-                        not PERIOD_PER_POINT and not USE_SYNTHETIC_DATA
-                    )
+            for (
+                stage_number, group, accuracy, indices, bounds, metric,
+                minimum_steps, precisions, settle_seconds,
+            ) in stages:
+                initial_points = gaussian_initial_coordinates(
+                    bounds,
+                    full_position[indices].tolist(),
+                    n_points=2 * len(indices) + 1,
+                    edge_margin_fraction=INITIAL_EDGE_MARGIN_FRACTION,
+                    precisions=precisions,
+                    random_state=RANDOM_SEED + stage_number,
                 )
+                required_initial = 2 * len(indices) + 2
+                remaining = (
+                    MAX_PERIODS - total_measurements
+                    if dae is not None and PERIOD_PER_POINT
+                    else MAX_MEASUREMENTS
+                )
+                if remaining < required_initial:
+                    raise ValueError(
+                        f"Not enough acquisition capacity for {group!r}: "
+                        f"need {required_initial}, have {remaining}"
+                    )
+
+                def acquire_group(coordinate, *, _indices=indices):
+                    full_position[_indices] = coordinate
+                    return (yield from acquire_full(full_position.copy()))
+                print(f"==============================Stage {stage_number + 1}/{len(stages)}==============================")
+                print(f"NOW OPTIMISING {group} with accuracy {accuracy:.3g}")
+                print(f"Moving motors {[motors[index].name for index in indices]}")
+                result = yield from minimize_plan(
+                    motors=[motors[index] for index in indices],
+                    bounds=bounds,
+                    acquire=acquire_group,
+                    extract_metrics=metric,
+                    accuracy=accuracy,
+                    initial_coordinates=initial_points,
+                    initial_repeats=2,
+                    max_measurements=min(MAX_MEASUREMENTS, remaining),
+                    max_acquisitions=(
+                        remaining if dae is not None and PERIOD_PER_POINT else None
+                    ),
+                    minimum_step_sizes=minimum_steps,
+                    precisions=precisions,
+                    settle_seconds=settle_seconds,
+                    final_position="best_measured",
+                    random_state=RANDOM_SEED + stage_number,
+                    verbose=VERBOSE,
+                    minimum_estimate_points=MINIMUM_ESTIMATE_POINTS,
+                    benchmark_recorder=recorder,
+                )
+                total_measurements += result.n_measurements
+                for index, motor in enumerate(motors):
+                    full_position[index] = float((yield from bps.rd(motor)))
+        finally:
+            if dae is not None and PERIOD_PER_POINT:
+                yield from bps.unstage(dae)
+        print("Final PV settings:")
+        for row, value in zip(rows, full_position):
+            print(f"  {row.name} ({row.setpoint_pv or 'synthetic'}): {value:.6g}")
+        print("Total measurements:", total_measurements)
+        return full_position
 
     return plan()
-
-
-# At MUSR, in a session where the Bluesky RunEngine `RE` is already defined:
-#
-# from examples.musr_steering_synthetic import make_plan
-# result = RE(make_plan())
-#
-# The exact method for accessing a plan's return value depends on the
-# instrument RunEngine configuration (some enable RunEngineResult).
-# With both synthetic switches true, neither EPICS nor the DAE is contacted.

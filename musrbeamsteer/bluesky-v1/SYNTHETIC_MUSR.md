@@ -2,7 +2,7 @@
 
 The synthetic acquisition backend obtains the muon data from a Python
 simulator. `USE_SYNTHETIC_MOTORS` independently selects in-memory motors or
-the real two MUSR steering magnets. Synthetic data does not connect to the
+the real MUSR PVs in `PV_DF`. Synthetic data does not connect to the
 DAE, perform a DAE run, or write NeXus files.
 The live backend still performs **one saved DAE run per point** and obtains
 its histogram directly from the paused DAE, without reading a NeXus file.
@@ -20,21 +20,18 @@ now contains the values supplied for the MUSR steering test:
 ```python
 USE_SYNTHETIC_DATA = True
 USE_SYNTHETIC_MOTORS = True
-STEER_1_SETPOINT_PV = "IN:MUSR:KEPCO_04:CURRENT:SP"
-STEER_1_READBACK_PV = "IN:MUSR:KEPCO_04:CURRENT"
-STEER_2_SETPOINT_PV = "IN:MUSR:KEPCO_05:CURRENT:SP"
-STEER_2_READBACK_PV = "IN:MUSR:KEPCO_05:CURRENT"
-
-SAFE_BOUNDS = ((-0.5, 0.5), (-1.5, 1.5))
-READBACK_TOLERANCES = (0.01, 0.01)
-CURRENT_PRECISIONS = [3, 3]
-SETTLE_SECONDS = 1.0
+PV_DF = ...  # one row per motor: PVs, bounds, tolerances and metric
+STEER_ORDER_ACCURACIES = (
+    ("steering", 0.1),
+    ("focusing", 0.001),
+    ("steering", 0.001),
+    ("collimation", 0.001),
+)
 MOVE_TIMEOUT_SECONDS = 30.0
 
 DURATION = AcquisitionDuration.events(1_000_000)
-CENTER = [0.1, -0.3]    # TRUE synthetic centre (unknown to the optimiser)
-CURVATURE = [3.0, 3.0]
-METRIC_NAME = "integrated_asymmetry"   # or "pca"
+CENTER = [0.1, -0.3, 0.0, 0.0, 60.0]  # TRUE synthetic centre
+CURVATURE = [3.0, 3.0, 1.0, 1.0, 0.001]
 METRIC_TIME_WINDOW_NS = (0.0, 30000.0)
 METRIC_REBIN = 1  # native 16 ns bins (8 would be 128 ns)
 MAX_MEASUREMENTS = 50
@@ -44,8 +41,8 @@ MINIMUM_ESTIMATE_POINTS = 1024
 ```
 
 **These are operator-provided test settings, not independently validated hardware
-limits.** Confirm both actual readbacks are within `SAFE_BOUNDS` and that the
-full rectangle is approved for the two magnets before executing. With
+limits.** Confirm every actual readback is within its `PV_DF` safe bounds and
+that the full scan regions are approved before executing. With
 `USE_SYNTHETIC_MOTORS=True`, no steering setpoints are written; with it set to
 `False`, the selected bounds are applied to the real motors.
 
@@ -61,40 +58,30 @@ python -c "from bluesky import RunEngine; from examples.musr_steering_main impor
 (and all its necessary EPICS DLLs) is already in that directory. It does not
 fix missing DLLs or gateway permissions.
 
-### Gaussian initial design around the operator's guess
+### Gaussian initial design for each PV group
 
-`INITIAL_GUESS = None` (the default) **prompts every time** before connecting
-to hardware:
+Each optimisation stage takes its initial point from the current readbacks
+and generates `2*n + 1` Gaussian coordinates. With `initial_repeats=2`,
+this produces exactly `2*n + 2` initial measurements for that group.
 
-```text
-Initial guess for 2 steering currents within ((-0.5, 0.5), (-1.5, 1.5)), e.g. [0.0, -0.2]:
-```
-
-Enter e.g. `[0.0, -0.2]`. The parser also accepts `0.0, -0.2`. The guess
-must be inside the bounds with at least the specified margin; invalid guesses
-are rejected and re-prompted. To skip prompting in automation, set:
-
-```python
-INITIAL_GUESS = [0.0, -0.2]
-```
-
-The guess is the *mean* of the Gaussian, not the synthetic truth
+The initial point is the current position of the motors in that group. The
+group's `PV_DF["initial_guess"]` values provide the synthetic starting
+positions. The guess is the *mean* of the Gaussian, not the synthetic truth
 (`CENTER`), and **it is not necessarily one of the acquired points**.
 For dimension i:
 
 ```
-sigma_i = min(INITIAL_GUESS[i] - SAFE_BOUNDS[i][0],
-              SAFE_BOUNDS[i][1] - INITIAL_GUESS[i]) / 3
+sigma_i = min(guess[i] - bounds[i][0],
+              bounds[i][1] - guess[i]) / 3
 ```
 
 `gaussian_initial_coordinates` samples **1 + 2N distinct N-dimensional
-points** by default (5 for the 2-magnet example). The first point is acquired
-twice for estimating noise, giving 6 initial measurements in 2D. Samples
+points** by default. The first point is acquired twice for estimating noise,
+giving `2*n + 2` initial measurements for a group with n motors. Samples
 outside the strict interior are **rejected, not clipped**. The default
 `INITIAL_EDGE_MARGIN_FRACTION = 0.02` excludes 2% of the entire width on
 each side; precision rounding is checked against this margin too.
-`RANDOM_SEED` makes the design repeatable. `INITIAL_DESIGN_POINTS` can override
-the number of Gaussian initial positions.
+`RANDOM_SEED` makes the design repeatable.
 
 **Only initial sampling uses this Gaussian and 2% margin.** Subsequent
 Knowledge-Gradient proposals and warning-triggered random exploration can
