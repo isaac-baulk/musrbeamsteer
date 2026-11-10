@@ -352,12 +352,16 @@ def test_three_dimensional_centre_and_curvature():
 
 def test_example_requires_real_musr_pvs_and_safe_bounds(monkeypatch):
     from examples import musr_steering_main as example
-    # The user-provided MUSR PVs/bounds are now populated. Check that the
-    # original safeguards still reject unset or incomplete configurations.
-    monkeypatch.setattr(example, 'STEER_1_SETPOINT_PV', 'REPLACE_WITH_MUSR_PV')
-    with pytest.raises(ValueError, match='actual steering magnet'):
+    invalid_pvs = example.PV_DF.copy()
+    invalid_pvs.loc[invalid_pvs["name"] == "musr_steering_1", "setpoint_pv"] = ""
+    monkeypatch.setattr(example, "PV_DF", invalid_pvs)
+    monkeypatch.setattr(example, "USE_SYNTHETIC_MOTORS", False)
+    with pytest.raises(ValueError, match="setpoint and readback PVs"):
         example.make_plan()
-    monkeypatch.setattr(example, 'STEER_1_SETPOINT_PV', 'IN:MUSR:KEPCO_04:CURRENT:SP')
-    monkeypatch.setattr(example, 'SAFE_BOUNDS', ((None, None), (-1.5, 1.5)))
-    with pytest.raises(ValueError, match='SAFE_BOUNDS'):
+    invalid_bounds = example.PV_DF.copy()
+    index = invalid_bounds.index[invalid_bounds["name"] == "musr_steering_1"][0]
+    invalid_bounds.at[index, "safe_bounds"] = (None, None)
+    monkeypatch.setattr(example, "PV_DF", invalid_bounds)
+    monkeypatch.setattr(example, "USE_SYNTHETIC_MOTORS", True)
+    with pytest.raises(ValueError, match="Invalid safe_bounds"):
         example.make_plan()

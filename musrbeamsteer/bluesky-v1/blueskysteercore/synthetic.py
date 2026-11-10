@@ -53,8 +53,8 @@ class SyntheticMotor:
 
     def __post_init__(self) -> None:
         lower, upper = self.safe_bounds
-        if not self.name or not self.setpoint_pv or not self.readback_pv:
-            raise ValueError("name and PV names are required")
+        if not self.name:
+            raise ValueError("name is required")
         if not math.isfinite(lower) or not math.isfinite(upper) or lower >= upper:
             raise ValueError("safe_bounds must be finite increasing bounds")
         if not lower <= self.initial_value <= upper:
