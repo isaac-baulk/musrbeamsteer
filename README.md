@@ -41,6 +41,13 @@ Dependencies:
 
 Edit user configuration in ```musrbeamsteer/bluesky-v1/examples/musr_steering_main```. Then from inside ```musrbeamsteer/bluesky-v1``` execute ```python -m examples.windows_test```.
 
+## bluesky adaptive
+
+Developing version powered by bluesky adaptive https://github.com/bluesky/bluesky-adaptive
+
+Morris, T. W., Rakitin, M., Du, Y., Fedurin, M., Giles, A. C., Leshchev, D., Li, W. H., Romasky, B., Stavitski, E., Walter, A. L., Moeller, P., Nash, B., & Islegen-Wojdyla, A. (2024). A general Bayesian algorithm for the autonomous alignment of beamlines. Journal of Synchrotron Radiation, 31(6), 1446–1456. https://doi.org/10.1107/S1600577524008993
+
+
 ## Docs
 
 Docs are a bit of a WIP but can be found at <https://isaac-baulk.github.io/musrbeamsteer/>.
