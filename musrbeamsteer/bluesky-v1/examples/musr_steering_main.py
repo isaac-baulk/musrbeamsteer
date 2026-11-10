@@ -54,7 +54,7 @@ PV_DF = pd.DataFrame(
         ["musr_steering_2", "steering", "IN:MUSR:KEPCO_05:CURRENT:SP", "IN:MUSR:KEPCO_05:CURRENT", 0.01, 0.0,(-1.5, 1.5), 1.0, 0.01, 3, "integrated_asymmetry"],
         ["musr_focusing_1", "focusing", "IN:MUONFE:GENESYS_03:1:CURR:SP", "IN:MUONFE:GENESYS_03:1:CURR", 0.01, 0.0, (-2.0, 2.0), 1.0, 0.01, 3, "asym_diff_count_rate"],
         ["musr_focusing_2", "focusing", "IN:MUONFE:GENESYS_03:2:CURR:SP", "IN:MUONFE:GENESYS_03:2:CURR", 0.01, 0.0, (-2.0, 2.0), 1.0, 0.01, 3, "asym_diff_count_rate"],
-        ["musr_slits", "collimation", "", "", 0.01, 60.0, (0.0, 120.0), 1.0, 1.0, 3, "asym_diff_count_rate"],
+        ["musr_slits", "collimation", "IN:MUSR:MUONJAWS_01:POSN:SP", "IN:MUSR:MUONJAWS_01:POSN", 0.01, 12.0, (6.0, 20.0), 1.0, 0.01, 3, "asym_diff_count_rate"],
     ]
 )
 
@@ -74,6 +74,7 @@ SYNTHETIC_MOTORS = tuple(
         setpoint_pv=row["setpoint_pv"],
         readback_pv=row["readback_pv"],
         safe_bounds=row["safe_bounds"],
+        initial_value=row["initial_guess"],
         readback_tolerance=row["tolerance"],
         timeout=MOVE_TIMEOUT_SECONDS,
     )
@@ -91,7 +92,7 @@ DURATION = AcquisitionDuration.events(1_000_000)
 
 # N-dimensional simulated sample centre / Gaussian spatial curvature.
 # These describe the synthetic beam, NOT the user's initial guess.
-CENTER = [0.1, -0.3, 0.0, 0.0, 60.0]
+CENTER = [0.1, -0.3, 0.0, 0.0, 10.0]
 CURVATURE = [3.0, 3.0, 1.0, 1.0, 0.001]  # inverse-square of PV units
 
 # Static zero-field Gaussian Kubo--Toyabe parameters.
@@ -120,7 +121,7 @@ VERBOSE = 2
 MINIMUM_ESTIMATE_POINTS = 1024  # used only when VERBOSE=2 (no motor moves)
 
 # Live plots: 2D GP-predicted metric + latest forward/backward asymmetry.
-PLOT_LIVE = False
+PLOT_LIVE = True
 PLOT_AXES = None  # default (0, 1); e.g. (1, 2) in a 3D+ scan
 PLOT_GRID_SIZE = 65  # 65 x 65 GP posterior-mean colour map
 PLOT_MINIMUM_POINTS = 1024  # full N-D Sobol search for slice centre
@@ -271,7 +272,7 @@ def make_plan():
             raise ValueError(f"All {group!r} PVs must use the same metric")
         bounds = [tuple(row.safe_bounds) for row in group_rows]
         metric = _metric_for_group(metrics.pop())
-        if PLOT_LIVE or PLOT_IMAGE_PATH is not None:
+        if len(group_rows) > 1 and (PLOT_LIVE or PLOT_IMAGE_PATH is not None):
             metric = live_metric_monitor(
                 bounds=bounds,
                 axes=PLOT_AXES,
@@ -286,13 +287,20 @@ def make_plan():
                 save_path=PLOT_IMAGE_PATH,
             )(metric)
             metric.set_axis_labels([row.name for row in group_rows])
-            metric.open()
         stages.append((
             stage_number, group, accuracy, indices, bounds, metric,
             [row.minimum_step_size for row in group_rows],
             [row.precision for row in group_rows],
             max(row.settle_seconds for row in group_rows),
         ))
+
+    # Matplotlib GUI objects must be created before the RunEngine starts.
+    # Stage execution may run on a worker thread, so later boundaries only
+    # show and hide these prepared windows.
+    for _, _, _, _, _, metric, _, _, _ in stages:
+        if hasattr(metric, "open"):
+            metric.open()
+            metric.deactivate()
 
     connected_devices = [*motors] + ([] if dae is None else [dae])
 
@@ -332,30 +340,43 @@ def make_plan():
                 def acquire_group(coordinate, *, _indices=indices):
                     full_position[_indices] = coordinate
                     return (yield from acquire_full(full_position.copy()))
+
                 print(f"==============================Stage {stage_number + 1}/{len(stages)}==============================")
                 print(f"NOW OPTIMISING {group} with accuracy {accuracy:.3g}")
                 print(f"Moving motors {[motors[index].name for index in indices]}")
-                result = yield from minimize_plan(
-                    motors=[motors[index] for index in indices],
-                    bounds=bounds,
-                    acquire=acquire_group,
-                    extract_metrics=metric,
-                    accuracy=accuracy,
-                    initial_coordinates=initial_points,
-                    initial_repeats=2,
-                    max_measurements=min(MAX_MEASUREMENTS, remaining),
-                    max_acquisitions=(
-                        remaining if dae is not None and PERIOD_PER_POINT else None
-                    ),
-                    minimum_step_sizes=minimum_steps,
-                    precisions=precisions,
-                    settle_seconds=settle_seconds,
-                    final_position="best_measured",
-                    random_state=RANDOM_SEED + stage_number,
-                    verbose=VERBOSE,
-                    minimum_estimate_points=MINIMUM_ESTIMATE_POINTS,
-                    benchmark_recorder=recorder,
-                )
+
+                if len(indices) == 1:
+                    print(
+                        "Live plots aren't possible for 1D optimisations; "
+                        "continuing without a live plot for this stage."
+                    )
+                elif hasattr(metric, "activate"):
+                    metric.activate()
+                try:
+                    result = yield from minimize_plan(
+                        motors=[motors[index] for index in indices],
+                        bounds=bounds,
+                        acquire=acquire_group,
+                        extract_metrics=metric,
+                        accuracy=accuracy,
+                        initial_coordinates=initial_points,
+                        initial_repeats=2,
+                        max_measurements=min(MAX_MEASUREMENTS, remaining),
+                        max_acquisitions=(
+                            remaining if dae is not None and PERIOD_PER_POINT else None
+                        ),
+                        minimum_step_sizes=minimum_steps,
+                        precisions=precisions,
+                        settle_seconds=settle_seconds,
+                        final_position="best_measured",
+                        random_state=RANDOM_SEED + stage_number,
+                        verbose=VERBOSE,
+                        minimum_estimate_points=MINIMUM_ESTIMATE_POINTS,
+                        benchmark_recorder=recorder,
+                    )
+                finally:
+                    if hasattr(metric, "deactivate"):
+                        metric.deactivate()
                 total_measurements += result.n_measurements
                 for index, motor in enumerate(motors):
                     full_position[index] = float((yield from bps.rd(motor)))

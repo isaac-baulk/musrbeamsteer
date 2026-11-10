@@ -200,6 +200,7 @@ class LiveOptimizationMonitor:
         self._last: PlotSnapshot | None = None
         self._disabled = False
         self._warning_printed = False
+        self._active = False
         self.figure = None
         self.ax_map = None
         self.ax_asym = None
@@ -270,10 +271,33 @@ class LiveOptimizationMonitor:
         if self.show:
             plt.show(block=False)
             self._timer = fig.canvas.new_timer(interval=self.refresh_interval_ms)
-            self._timer.add_callback(self.render_pending)
+            self._timer.add_callback(self._timer_callback)
             self._timer.start()
             fig.canvas.mpl_connect("close_event", lambda event: self.close())
         return self
+
+    def _timer_callback(self) -> None:
+        self._sync_visibility()
+        self.render_pending()
+
+    def activate(self) -> None:
+        """Show a prepared GUI monitor when its optimisation stage starts."""
+        self._active = True
+
+    def deactivate(self) -> None:
+        """Hide a GUI monitor when its optimisation stage finishes."""
+        self._active = False
+
+    def _sync_visibility(self) -> None:
+        if self.figure is None or not self.show:
+            return
+        window = getattr(self.figure.canvas.manager, "window", None)
+        if window is not None:
+            if self._active:
+                window.show()
+                self.figure.canvas.draw_idle()
+            else:
+                window.hide()
 
     def _label(self, index: int) -> str:
         return self.axis_labels[index] if self.axis_labels is not None else f"Axis {index + 1}"
@@ -431,10 +455,20 @@ class LiveOptimizationMonitor:
             self.figure.savefig(self.save_path, dpi=125)
 
     def close(self) -> None:
-        """Stop the redraw timer; leave figure open unless user closes it."""
+        """Stop redraws and close the monitor figure."""
         if self._timer is not None:
             self._timer.stop()
             self._timer = None
+        if self.figure is not None:
+            import matplotlib.pyplot as plt
+            plt.close(self.figure)
+            self.figure = None
+            self.ax_map = None
+            self.ax_asym = None
+            self._map_artist = None
+            self._points_artist = None
+            self._minimum_artist = None
+            self._colorbar = None
 
 
 class MonitoredMetric:
@@ -458,6 +492,15 @@ class MonitoredMetric:
 
     def open(self):
         return self.monitor.open()
+
+    def close(self):
+        return self.monitor.close()
+
+    def activate(self):
+        return self.monitor.activate()
+
+    def deactivate(self):
+        return self.monitor.deactivate()
 
     def set_axis_labels(self, labels):
         self.monitor.set_axis_labels(labels)
