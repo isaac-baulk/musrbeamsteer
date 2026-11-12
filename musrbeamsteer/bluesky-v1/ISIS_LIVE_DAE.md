@@ -5,8 +5,7 @@ This module uses the **current** ISIS `ibex_bluesky_core` Bluesky DAEs and
 
 The design is suitable for MUSR after verifying its current detector mapping,
 EPICS connectivity and device limits, and can be applied to other instruments by
-providing different spectra/grouping and positioners. The steering example
-previously provided in this discussion was for **ARGUS**, not MUSR.
+providing different spectra/grouping and positioners.
 
 ## Documented interfaces
 

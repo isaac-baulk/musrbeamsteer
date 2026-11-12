@@ -27,7 +27,7 @@ Edit user configuration variables in ```musrbeamsteer/genie-mantid/optimised_int
 
 ## bluesky-v1
 
-Bluesky-v1 instead uses the bluesky library for all data acquisition, processing, and interaction with DAE and steering blocks via EPICS. Can be run in entirely synthetic mode, which does not require live IBEX servers and generates purely synthetic asymmetry data. For connection tests, can be run with live motors but synthetic data.
+Bluesky-v1 instead uses the bluesky library for all data acquisition, processing, and interaction with DAE and steering blocks via EPICS. Can be run in entirely synthetic mode, which does not require live IBEX servers and generates purely synthetic asymmetry data. For connection tests, can be run with live motors but synthetic data. Note - bluesky-v1 interfaces with existing DAE/DAE 2 systems which interface with bluesky. This is the standard data acquisition electronics system for MuSR, HIFI, EMU, ARGUS.
 
 Dependencies:
 - numpy
@@ -40,6 +40,10 @@ Dependencies:
 - bluesky
 
 Edit user configuration in ```musrbeamsteer/bluesky-v1/examples/musr_steering_main```. Then from inside ```musrbeamsteer/bluesky-v1``` execute ```python -m examples.windows_test```.
+
+## bluesky-kafka
+
+Bluesky-kafka will use the new DAQ event-streaming data acquisition system used on SuperMuSR to read current frame data.
 
 ## Docs
 
