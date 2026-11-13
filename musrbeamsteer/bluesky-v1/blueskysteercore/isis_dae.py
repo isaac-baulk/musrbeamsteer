@@ -20,6 +20,7 @@ import asyncio
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass
 from enum import Enum
+from pathlib import Path
 from time import monotonic
 from typing import Any
 
@@ -218,6 +219,141 @@ class LiveSpectrumSnapshotter:
         return data
 
 
+class NexusSpectrumSnapshotter(LiveSpectrumSnapshotter):
+    """Read one saved ISIS run from a NeXus file.
+
+    The reader matches the raw ISIS NeXus layout used by the supplied MUSR
+    files.  It intentionally has the same output contract as
+    :class:`LiveSpectrumSnapshotter`, so metrics do not depend on the source
+    of the histogram.  ``h5py`` is imported only when a file is read because
+    the live DAE path does not require an HDF5 dependency.
+    """
+
+    def __init__(
+        self,
+        spectra: Sequence[int],
+        *,
+        nexus_directory: str | Path,
+        grouping: DetectorGrouping | None = None,
+        include_spectrum_matrix: bool = True,
+        read_time_axis: bool = True,
+        time_axis_unit: str = "ns",
+        file_name_template: str = "musr{run_number:08d}.nxs",
+        file_wait_seconds: float = 600.0,
+    ) -> None:
+        super().__init__(
+            spectra,
+            grouping=grouping,
+            include_spectrum_matrix=include_spectrum_matrix,
+            read_time_axis=read_time_axis,
+            time_axis_unit=time_axis_unit,
+        )
+        if not np.isfinite(file_wait_seconds) or file_wait_seconds <= 0:
+            raise ValueError("file_wait_seconds must be finite and positive")
+        if "{run_number" not in file_name_template:
+            raise ValueError("file_name_template must contain {run_number}")
+        self.nexus_directory = Path(nexus_directory)
+        self.file_name_template = file_name_template
+        self.file_wait_seconds = float(file_wait_seconds)
+
+    def _path_for_run(self, run_number: int) -> Path:
+        return self.nexus_directory / self.file_name_template.format(run_number=run_number)
+
+    def _read_file(self, path: Path, run_number: int, wall_seconds: float) -> dict[str, Any]:
+        try:
+            import h5py
+        except ImportError as exc:
+            raise RuntimeError(
+                "NexusSpectrumSnapshotter requires h5py; install the package dependency"
+            ) from exc
+
+        with h5py.File(path, "r") as nexus:
+            counts_dataset = nexus["/raw_data_1/instrument/detector_1/counts"]
+            counts = np.asarray(counts_dataset[...])
+            spectrum_numbers = np.asarray(
+                nexus["/raw_data_1/instrument/detector_1/spectrum_index"][...],
+                dtype=np.int64,
+            ).reshape(-1)
+            if counts.ndim != 3 or counts.shape[0] != 1 or counts.shape[1] != spectrum_numbers.size:
+                raise ValueError(f"Unexpected Nexus count shape: {counts.shape}")
+            if not np.array_equal(spectrum_numbers, np.arange(1, counts.shape[1] + 1)):
+                index = {int(number): i for i, number in enumerate(spectrum_numbers)}
+                try:
+                    selected_indices = [index[number] for number in self.spectra]
+                except KeyError as exc:
+                    raise ValueError(f"Nexus file does not contain spectrum {exc.args[0]}") from exc
+            else:
+                selected_indices = [number - 1 for number in self.spectra]
+            matrix = np.array(counts[0, selected_indices, :], dtype=np.float64, copy=True)
+            if not np.all(np.isfinite(matrix)) or np.any(matrix < 0):
+                raise ValueError("Invalid Nexus spectrum counts")
+
+            def scalar(name: str, default: float = 0.0) -> float:
+                if name not in nexus:
+                    return default
+                return float(np.asarray(nexus[name][...]).reshape(-1)[0])
+
+            frames = int(scalar("/raw_data_1/good_frames"))
+            if frames <= 0:
+                raise ValueError("Nexus file contains zero good frames; cannot normalise rate")
+            data: dict[str, Any] = {
+                "run_number": run_number,
+                "spectrum_numbers": np.asarray(self.spectra, dtype=np.int64),
+                "total_counts": float(matrix.sum()),
+                "good_frames": frames,
+                "events_millions": scalar("/raw_data_1/total_counts") / 1_000_000.0,
+                "wall_seconds": float(wall_seconds),
+                "dae_run_duration_seconds": scalar("/raw_data_1/duration"),
+            }
+            if self.include_spectrum_matrix:
+                data["counts_by_spectrum"] = matrix
+            if self.grouping is not None:
+                ix = {s: i for i, s in enumerate(self.spectra)}
+                data["forward_counts"] = matrix[[ix[s] for s in self.grouping.forward]].sum(axis=0)
+                data["backward_counts"] = matrix[[ix[s] for s in self.grouping.backward]].sum(axis=0)
+            if self.read_time_axis:
+                raw_time_dataset = nexus[
+                    "/raw_data_1/instrument/dae/time_channels_1/raw_time"
+                ]
+                raw_time = np.asarray(raw_time_dataset[...], dtype=float).reshape(-1)
+                if raw_time.size != matrix.shape[1] + 1:
+                    raise ValueError(
+                        f"Nexus time edges ({raw_time.size}) do not match counts ({matrix.shape[1]})"
+                    )
+                raw_unit = raw_time_dataset.attrs.get("units", b"")
+                if isinstance(raw_unit, bytes):
+                    raw_unit = raw_unit.decode("ascii")
+                unit_scale = {"second": 1.0, "millisecond": 1e3, "microsecond": 1e6, "nanosecond": 1e9}
+                if raw_unit not in unit_scale or self.time_axis_unit not in {"s", "ms", "us", "ns"}:
+                    raise ValueError(f"Unsupported Nexus time unit conversion: {raw_unit!r} to {self.time_axis_unit!r}")
+                target_scale = {"s": 1.0, "ms": 1e3, "us": 1e6, "ns": 1e9}[self.time_axis_unit]
+                data["time_bins"] = (
+                    (raw_time[:-1] + raw_time[1:]) / 2.0 * target_scale / unit_scale[raw_unit]
+                )
+                data["time_bin_unit"] = self.time_axis_unit
+            return data
+
+    async def capture(
+        self,
+        dae: Any,
+        *,
+        wall_seconds: float,
+        run_number: int | None = None,
+    ) -> dict[str, Any]:
+        """Read the saved run; ``dae`` is retained for snapshotter compatibility."""
+        if run_number is None:
+            run_number = int(await dae.controller.run_number.get_value())
+        if run_number < 1:
+            raise ValueError("Invalid Nexus run number")
+        path = self._path_for_run(run_number)
+        deadline = monotonic() + self.file_wait_seconds
+        while not path.exists() and monotonic() < deadline:
+            await asyncio.sleep(min(0.1, max(0.0, deadline - monotonic())))
+        if not path.exists():
+            raise FileNotFoundError(f"Nexus file for run {run_number} was not found: {path}")
+        return await asyncio.to_thread(self._read_file, path, run_number, wall_seconds)
+
+
 async def acquire_snapshot_before_save(
     dae: Any,
     snapshotter: LiveSpectrumSnapshotter,
@@ -225,6 +361,7 @@ async def acquire_snapshot_before_save(
     *,
     max_wait_seconds: float | None,
     benchmark_recorder: Any | None = None,
+    snapshot_after_save: bool = False,
 ) -> dict[str, Any]:
     """Perform a run and END/save after a successful BEGIN handshake.
 
@@ -256,7 +393,18 @@ async def acquire_snapshot_before_save(
         if benchmark_recorder is not None:
             benchmark_recorder.record("dae_pause", monotonic() - phase_started)
         phase_started = monotonic()
-        snapshot = await snapshotter.capture(dae, wall_seconds=exposure_wall_seconds)
+        if snapshot_after_save:
+            run_number = int(await dae.controller.run_number.get_value())
+            await dae.controller.stop_counting(dae)
+            started = False
+            if benchmark_recorder is not None:
+                benchmark_recorder.record("dae_end_save", monotonic() - phase_started)
+            phase_started = monotonic()
+            snapshot = await snapshotter.capture(
+                dae, wall_seconds=exposure_wall_seconds, run_number=run_number
+            )
+        else:
+            snapshot = await snapshotter.capture(dae, wall_seconds=exposure_wall_seconds)
         if benchmark_recorder is not None:
             benchmark_recorder.record("dae_snapshot", monotonic() - phase_started)
     except BaseException as exc:
@@ -354,6 +502,9 @@ def make_live_run_per_point_dae(
     read_time_axis: bool = True,
     time_axis_unit: str = "ns",
     benchmark_recorder: Any | None = None,
+    data_read_type: str = "live",
+    nexus_directory: str | Path | None = None,
+    nexus_file_wait_seconds: float = 600.0,
 ):
     """Create a RunPerPointController(save_run=True) DAE for live metrics.
 
@@ -363,7 +514,9 @@ def make_live_run_per_point_dae(
 
     The DAE must be in SETUP with a valid spectra table/TCB configuration.
     Does not change any instrument hardware settings, interlocks or period
-    configuration. Reads live spectrum map *before* END/save.
+    configuration. ``data_read_type="live"`` reads the spectrum map before
+    END/save. ``data_read_type="nexus"`` ends the run first and reads the
+    corresponding ``musr########.nxs`` file from ``nexus_directory``.
     """
     from ibex_bluesky_core.devices.dae import DaeSpectra, RunstateEnum
     from ibex_bluesky_core.devices.simpledae import (
@@ -376,13 +529,30 @@ def make_live_run_per_point_dae(
         prefix = get_pv_prefix()
     if max_wait_seconds is not None and (not np.isfinite(max_wait_seconds) or max_wait_seconds <= 0):
         raise ValueError("max_wait_seconds must be positive or None")
+    if data_read_type not in {"live", "snapshot", "nexus"}:
+        raise ValueError("data_read_type must be 'live', 'snapshot' or 'nexus'")
+    use_nexus = data_read_type == "nexus"
+    if use_nexus and nexus_directory is None:
+        raise ValueError("nexus_directory is required when data_read_type='nexus'")
 
-    snapshotter = LiveSpectrumSnapshotter(
-        spectra=spectra,
-        grouping=grouping,
-        include_spectrum_matrix=include_spectrum_matrix,
-        read_time_axis=read_time_axis,
-        time_axis_unit=time_axis_unit,
+    snapshotter = (
+        NexusSpectrumSnapshotter(
+            spectra=spectra,
+            nexus_directory=nexus_directory,
+            grouping=grouping,
+            include_spectrum_matrix=include_spectrum_matrix,
+            read_time_axis=read_time_axis,
+            time_axis_unit=time_axis_unit,
+            file_wait_seconds=nexus_file_wait_seconds,
+        )
+        if use_nexus
+        else LiveSpectrumSnapshotter(
+            spectra=spectra,
+            grouping=grouping,
+            include_spectrum_matrix=include_spectrum_matrix,
+            read_time_axis=read_time_axis,
+            time_axis_unit=time_axis_unit,
+        )
     )
 
     class LiveRunPerPointDae(SimpleDae):
@@ -436,6 +606,7 @@ def make_live_run_per_point_dae(
                 self, snapshotter, pause_and_confirm,
                 max_wait_seconds=max_wait_seconds,
                 benchmark_recorder=benchmark_recorder,
+                snapshot_after_save=use_nexus,
             )
             self.last_snapshot = snapshot
             self._counts_setter(float(snapshot["total_counts"]))
@@ -456,6 +627,9 @@ def make_live_period_per_point_dae(
     read_time_axis: bool = True,
     time_axis_unit: str = "ns",
     benchmark_recorder: Any | None = None,
+    data_read_type: str = "live",
+    nexus_directory: str | Path | None = None,
+    nexus_file_wait_seconds: float = 600.0,
 ):
     """Create a PeriodPerPointController(save_run=True) DAE for live metrics.
 
@@ -467,6 +641,9 @@ def make_live_period_per_point_dae(
     Each staged device opens one saved DAE run, and each trigger acquires one
     period. Does not change any instrument hardware settings, interlocks or
     period configuration. Reads live spectrum map before the period is paused.
+    NeXus reading is not supported here because the shared run is not saved
+    until unstage; use ``make_live_run_per_point_dae`` for
+    ``data_read_type="nexus"``.
     """
     from ibex_bluesky_core.devices.dae import DaeSpectra
     from ibex_bluesky_core.devices.simpledae import (
@@ -479,6 +656,10 @@ def make_live_period_per_point_dae(
         prefix = get_pv_prefix()
     if max_wait_seconds is not None and (not np.isfinite(max_wait_seconds) or max_wait_seconds <= 0):
         raise ValueError("max_wait_seconds must be positive or None")
+    if data_read_type not in {"live", "snapshot"}:
+        raise ValueError(
+            "data_read_type='nexus' is only supported for RunPerPoint acquisitions"
+        )
 
     snapshotter = LiveSpectrumSnapshotter(
         spectra=spectra,

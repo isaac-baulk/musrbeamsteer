@@ -20,6 +20,7 @@ import ast
 import re
 import pandas as pd
 import numpy as np
+from pathlib import Path
 
 from blueskysteercore.acquisition import make_live_ibex_dae_acquire, make_synthetic_acquire
 from blueskysteercore.benchmarking import BenchmarkRecorder, duration_as_dict
@@ -43,6 +44,8 @@ USE_SYNTHETIC_DATA = True  # False: use the LIVE MUSR DAE
 USE_SYNTHETIC_MOTORS = True  # False: use the LIVE MUSR steering magnets
 MAX_PERIODS = 60 #limited by memory card of instrument
 PERIOD_PER_POINT = True  # False: one DAE run per point; True: all points in one DAE run
+DATA_READ_TYPE = 'snapshot' # RunPerPoint: 'nexus' reads saved files; 'snapshot' reads DAE memory
+INCOMING_DIR = Path("//musr/Data") #configure if reading nexus files
 benchmark_acq = False  # Enable DAE timing and configuration logging.
 
 INSTRUMENT = "MUSR_LONGITUDINAL" #other options: MUSR_TRANSVERSE, EMU, HIFI
@@ -256,6 +259,8 @@ def make_plan():
             duration=DURATION,
             instrument=INSTRUMENT,
             period_per_point=PERIOD_PER_POINT,
+            data_read_type=DATA_READ_TYPE,
+            nexus_directory=INCOMING_DIR,
             read_time_axis=True,
             benchmark_recorder=recorder,
         )

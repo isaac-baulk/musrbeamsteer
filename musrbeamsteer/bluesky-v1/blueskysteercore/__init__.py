@@ -8,6 +8,7 @@ from .metrics import (
 )
 from .isis_dae import (
     AcquisitionDuration, DetectorGrouping, LiveSpectrumSnapshotter,
+    NexusSpectrumSnapshotter,
     make_live_period_per_point_dae, make_live_run_per_point_dae,
     make_musr_live_dae, make_musr_live_dae_ppp,
     musr_longitudinal_grouping,

@@ -4,12 +4,14 @@ from __future__ import annotations
 import asyncio
 import sys
 import types
+from pathlib import Path
 
 import numpy as np
 import pytest
 
 from ..blueskysteercore.isis_dae import (
     AcquisitionDuration, DetectorGrouping, LiveSpectrumSnapshotter,
+    NexusSpectrumSnapshotter,
     acquire_snapshot_before_save, make_duration_waiter, musr_longitudinal_grouping,
 )
 from ..blueskysteercore.metrics import (
@@ -178,3 +180,50 @@ def test_snapshot_empty_frames_fails_closed():
             max_wait_seconds=10,
         ))
     assert dae.calls[-1] == 'END_SAVE'
+
+
+def test_nexus_snapshot_reads_selected_spectra_and_bin_centres(tmp_path):
+    h5py = pytest.importorskip("h5py")
+    path = Path(tmp_path) / "musr00000123.nxs"
+    with h5py.File(path, "w") as nexus:
+        raw = nexus.create_group("raw_data_1")
+        instrument = raw.create_group("instrument")
+        detector = instrument.create_group("detector_1")
+        detector.create_dataset("counts", data=np.array([[
+            [1, 2, 3], [4, 5, 6], [7, 8, 9],
+        ]], dtype=np.int32))
+        detector.create_dataset("spectrum_index", data=[1, 2, 3])
+        detector.create_dataset("period_index", data=[1])
+        dae = instrument.create_group("dae")
+        time_channels = dae.create_group("time_channels_1")
+        raw_time = time_channels.create_dataset("raw_time", data=[0.0, 1.0, 3.0, 6.0])
+        raw_time.attrs["units"] = "microsecond"
+        raw.create_dataset("good_frames", data=[10])
+        raw.create_dataset("duration", data=[2.5])
+        raw.create_dataset("total_counts", data=[99])
+
+    snapshotter = NexusSpectrumSnapshotter(
+        (3, 1), nexus_directory=tmp_path,
+        grouping=DetectorGrouping((3,), (1,)),
+    )
+    result = asyncio.run(snapshotter.capture(
+        types.SimpleNamespace(), wall_seconds=4.0, run_number=123,
+    ))
+    assert np.array_equal(result["counts_by_spectrum"], [[7, 8, 9], [1, 2, 3]])
+    assert np.array_equal(result["forward_counts"], [7, 8, 9])
+    assert np.array_equal(result["backward_counts"], [1, 2, 3])
+    assert np.array_equal(result["time_bins"], [500.0, 2000.0, 4500.0])
+    assert result["dae_run_duration_seconds"] == 2.5
+
+
+def test_nexus_snapshot_ends_before_reading(tmp_path):
+    snapshotter = NexusSpectrumSnapshotter(
+        (1,), nexus_directory=tmp_path, file_wait_seconds=0.01,
+    )
+    dae = FakeDAE()
+    with pytest.raises(FileNotFoundError):
+        asyncio.run(acquire_snapshot_before_save(
+            dae, snapshotter, lambda d: d.pause(d), max_wait_seconds=1,
+            snapshot_after_save=True,
+        ))
+    assert dae.calls[-1] == "END_SAVE"
